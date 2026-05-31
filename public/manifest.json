@@ -1,0 +1,38 @@
+{
+  "name": "HRBharat Enterprise",
+  "short_name": "HRBharat",
+  "description": "Premium HR Management SaaS Platform",
+  "start_url": "/admin/dashboard",
+  "display": "standalone",
+  "background_color": "#0B0F17",
+  "theme_color": "#0B0F17",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "HRBharat Midnight Obsidian Admin Console"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "label": "HRBharat Mobile Roster Telemetry"
+    }
+  ]
+}
