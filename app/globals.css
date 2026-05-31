@@ -25,3 +25,19 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+/* Force clear visibility on all form inputs and panels */
+input, select, textarea {
+  color: #0f172a !important; /* Deep text color (slate-900) */
+  background-color: #ffffff !important; /* Clean white background */
+}
+
+/* Ensure labels remain readable */
+label {
+  color: #334155 !important; /* Medium dark slate text */
+  font-weight: 500;
+}
+
+/* Style the placeholder text so it doesn't blend into the white background */
+input::placeholder, textarea::placeholder {
+  color: #94a3b8 !important; /* Light gray placeholder text */
+}
