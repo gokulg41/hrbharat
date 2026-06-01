@@ -2,6 +2,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+// Centralized High-Privilege Administration Client Database Instance
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 /**
  * HRBharat Core Onboarding Handshake Engine
  * Provisions secure authentication credentials while mapping active profile and leave balance instances
@@ -20,90 +26,171 @@ export async function onboardEmployeeAction(data: {
   joiningDate: string;
 }) {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    console.log("STEP 1: Starting employee onboarding");
 
     const tempPassword = `Temp@${data.employeeCode.trim()}`;
     const cleanEmail = data.email.toLowerCase().trim();
     const cleanEmpCode = data.employeeCode.toUpperCase().trim();
 
-    // 1. Dispatch provisioning call to auth vault core layout structures
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: cleanEmail,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { role: 'employee' }
-    });
+    // CREATE AUTH USER
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: cleanEmail,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          role: "employee",
+        },
+      });
 
     if (authError) {
-      return { success: false, error: `Authentication Vault Allocation Aborted: ${authError.message}` };
+      console.error("AUTH ERROR:", authError);
+
+      return {
+        success: false,
+        error: authError.message,
+      };
     }
 
-    if (!authUser.user) {
-      return { success: false, error: "Authentication system returned an empty context reference hook." };
+    if (!authData?.user) {
+      return {
+        success: false,
+        error: "Auth user was not created.",
+      };
     }
 
-    // 2. Synchronize auth signature tokens into global profiles mapping tables
+    const authUserId = authData.user.id;
+
+    console.log("STEP 2: Auth user created", authUserId);
+
+    // CREATE PROFILE
     const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        id: authUser.user.id,
-        company_id: data.companyId,
-        full_name: data.fullName.trim(),
-        role: 'employee',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      .from("profiles")
+      .upsert(
+        {
+          id: authUserId,
+          company_id: data.companyId,
+          full_name: data.fullName.trim(),
+          email: cleanEmail,
+          role: "employee",
+          must_reset_password: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      );
 
     if (profileError) {
-      return { success: false, error: `Auth cleared but profiles cross-sync failed: ${profileError.message}` };
+      console.error("PROFILE ERROR:", profileError);
+
+      // rollback auth user
+      await supabaseAdmin.auth.admin.deleteUser(authUserId);
+
+      return {
+        success: false,
+        error: profileError.message,
+      };
     }
 
-    // 3. Commit comprehensive data parameters down to employee directory tables with initialized leave wallets
-    const { error: employeeError } = await supabaseAdmin
-      .from('employees')
-      .upsert({
-        company_id: data.companyId,
-        employee_code: cleanEmpCode,
-        full_name: data.fullName.trim(),
-        email: cleanEmail,
-        phone_number: data.phone.trim() || null,
-        designation: data.designation.trim() || 'Staff Consultant',
-        department: data.department.trim() || 'Operations',
-        monthly_salary: Number(data.monthlySalary) || 0,
-        bank_account_number: data.bankAccount.trim() || null,
-        ifsc_code: data.ifscCode.toUpperCase().trim() || null,
-        joining_date: data.joiningDate,
-        sick_leave_balance: 12,
-        casual_leave_balance: 12,
-        paid_leave_balance: 18,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'email' });
+    console.log("STEP 3: Profile created");
+
+    // CREATE EMPLOYEE
+    const { data: employeeData, error: employeeError } =
+      await supabaseAdmin
+        .from("employees")
+        .insert({
+          auth_user_id: authUserId,
+
+          company_id: data.companyId,
+
+          employee_code: cleanEmpCode,
+
+          full_name: data.fullName.trim(),
+
+          email: cleanEmail,
+
+          phone_number: data.phone?.trim() || null,
+
+          designation:
+            data.designation?.trim() || "Employee",
+
+          department:
+            data.department?.trim() || "Operations",
+
+          monthly_salary:
+            Number(data.monthlySalary) || 0,
+
+          bank_account_number:
+            data.bankAccount?.trim() || null,
+
+          ifsc_code:
+            data.ifscCode?.toUpperCase().trim() || null,
+
+          joining_date: data.joiningDate,
+
+          sick_leave_balance: 12,
+          casual_leave_balance: 12,
+          paid_leave_balance: 18,
+
+          status: "active",
+
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
     if (employeeError) {
-      return { success: false, error: `Auth and profiles synchronized but active roster mapping dropped: ${employeeError.message}` };
+      console.error("EMPLOYEE ERROR:", employeeError);
+
+      // rollback
+      await supabaseAdmin.auth.admin.deleteUser(authUserId);
+
+      return {
+        success: false,
+        error: employeeError.message,
+      };
     }
 
-    // 4. Stream transaction notification notice down to immutable audit system ledger
-    await supabaseAdmin.from('system_audit_logs').insert({
-      company_id: data.companyId,
-      actor_name: "Administrative Nexus",
-      event_type: "NODE_PROVISIONED",
-      description: `Provisioned asset ${cleanEmpCode} (${data.fullName.trim()}) securely into system architecture with baseline leave balances.`
-    });
+    console.log("STEP 4: Employee created", employeeData?.id);
 
-    return { success: true, tempPassword };
+    // AUDIT LOG
+    const { error: auditError } = await supabaseAdmin
+      .from("system_audit_logs")
+      .insert({
+        company_id: data.companyId,
+        actor_name: "Admin",
+        event_type: "EMPLOYEE_CREATED",
+        description: `Employee ${data.fullName} (${cleanEmpCode}) onboarded.`,
+        created_at: new Date().toISOString(),
+      });
 
-  } catch (err: any) {
-    return { success: false, error: err.message || 'An unhandled tracking server handshake exception occurred.' };
+    if (auditError) {
+      console.warn("AUDIT LOG ERROR:", auditError);
+    }
+
+    console.log("STEP 5: Employee onboarding completed");
+
+    return {
+      success: true,
+      employeeId: employeeData.id,
+      authUserId,
+      tempPassword,
+      message: "Employee onboarded successfully.",
+    };
+  } catch (error: any) {
+    console.error("ONBOARDING ERROR:", error);
+
+    return {
+      success: false,
+      error:
+        error?.message ||
+        "Unexpected onboarding error.",
+    };
   }
 }
-
-/**
- * Secure Administrative Geofence Perimeter & Subnet Policy Lock Action
- * Enforces coordinate boundary thresholds alongside explicit office Wi-Fi gateway constraints
- */
 export async function updateCompanyGeofenceAction(data: {
   companyId: string;
   latitude: number;
@@ -112,11 +199,6 @@ export async function updateCompanyGeofenceAction(data: {
   allowedIp?: string;
 }) {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     const { error } = await supabaseAdmin
       .from('company_settings')
       .upsert({
@@ -129,10 +211,9 @@ export async function updateCompanyGeofenceAction(data: {
       }, { onConflict: 'company_id' });
 
     if (error) {
-      return { success: false, error: `Database constraint failure writing geofence configurations: ${error.message}` };
+      return { success: false, error: String(error.message) };
     }
 
-    // Stream perimeter mutation track log down to audit feed
     await supabaseAdmin.from('system_audit_logs').insert({
       company_id: data.companyId,
       actor_name: "Administrative Core",
@@ -143,7 +224,7 @@ export async function updateCompanyGeofenceAction(data: {
     return { success: true };
 
   } catch (err: any) {
-    return { success: false, error: err.message || 'Unhandled network parameters write exception.' };
+    return { success: false, error: err?.message ? String(err.message) : 'Unhandled network parameters write exception.' };
   }
 }
 
@@ -159,29 +240,24 @@ export async function createCompanyShiftAction(data: {
   gracePeriod: number;
 }) {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     const { error } = await supabaseAdmin
       .from('company_shifts')
       .insert({
         company_id: data.companyId,
         shift_name: data.shiftName.trim(),
-        start_time: data.startTime,
-        end_time: data.endTime,
+        start_time: data.startTime.trim(),
+        end_time: data.endTime.trim(),
         grace_period_minutes: Number(data.gracePeriod) || 0
       });
 
     if (error) {
-      return { success: false, error: `Failed to insert shift timeline criteria definitions: ${error.message}` };
+      return { success: false, error: String(error.message) };
     }
 
     return { success: true };
 
   } catch (err: any) {
-    return { success: false, error: err.message || 'Unhandled shift creation process exception.' };
+    return { success: false, error: err?.message ? String(err.message) : 'Unhandled shift creation process exception.' };
   }
 }
 
@@ -191,24 +267,19 @@ export async function createCompanyShiftAction(data: {
  */
 export async function assignEmployeeShiftAction(employeeId: string, shiftId: string | null) {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     const { error } = await supabaseAdmin
       .from('employees')
       .update({ assigned_shift_id: shiftId || null })
       .eq('id', employeeId);
 
     if (error) {
-      return { success: false, error: `Shift allocation router mutation sequence rejected: ${error.message}` };
+      return { success: false, error: String(error.message) };
     }
 
     return { success: true };
 
   } catch (err: any) {
-    return { success: false, error: err.message || 'Unhandled route assignation lookup exception.' };
+    return { success: false, error: err?.message ? String(err.message) : 'Unhandled route assignation lookup exception.' };
   }
 }
 
@@ -218,20 +289,14 @@ export async function assignEmployeeShiftAction(employeeId: string, shiftId: str
  */
 export async function commitMonthlyPayrollAction(records: any[]) {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     const { error } = await supabaseAdmin
       .from('payroll_ledger')
       .insert(records);
 
     if (error) {
-      return { success: false, error: `Ledger execution batch insert sequence aborted: ${error.message}` };
+      return { success: false, error: String(error.message) };
     }
 
-    // Stream batch commitment trace log down to central audit system ledger
     if (records.length > 0) {
       await supabaseAdmin.from('system_audit_logs').insert({
         company_id: records[0].company_id,
@@ -244,7 +309,7 @@ export async function commitMonthlyPayrollAction(records: any[]) {
     return { success: true };
 
   } catch (err: any) {
-    return { success: false, error: err.message || 'An unhandled database ledger exception occurred.' };
+    return { success: false, error: err?.message ? String(err.message) : 'An unhandled database ledger exception occurred.' };
   }
 }
 
@@ -254,11 +319,6 @@ export async function commitMonthlyPayrollAction(records: any[]) {
  */
 export async function approveOrRejectLeaveWithBalanceAction(companyId: string, requestId: string, targetStatus: 'approved' | 'rejected') {
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    
     // 1. Fetch matching leave request information from the queue
     const { data: request, error: reqError } = await supabaseAdmin
       .from('leave_requests')
@@ -270,21 +330,20 @@ export async function approveOrRejectLeaveWithBalanceAction(companyId: string, r
       return { success: false, error: "Target leave ticket request tracking token invalid or missing." };
     }
 
-    // If administrative status is flat rejection, commit change instantly and bypass math checks
     if (targetStatus === 'rejected') {
       const { error: rejectError } = await supabaseAdmin
         .from('leave_requests')
         .update({ status: 'rejected' })
         .eq('id', requestId);
 
-      if (rejectError) return { success: false, error: `Rejection write aborted: ${rejectError.message}` };
+      if (rejectError) return { success: false, error: String(rejectError.message) };
       return { success: true };
     }
 
-    // 2. Compute absolute duration date span parameters
-    const start = new Date(request.start_date);
-    const end = new Date(request.end_date);
-    const daySpan = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // 2. Compute absolute duration date span parameters cleanly across different timezones
+    const start = new Date(`${request.start_date}T00:00:00`);
+    const end = new Date(`${request.end_date}T23:59:59`);
+    const daySpan = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
     // 3. Fetch current employee balance trackers
     const { data: emp, error: empError } = await supabaseAdmin
@@ -304,7 +363,6 @@ export async function approveOrRejectLeaveWithBalanceAction(companyId: string, r
 
     const currentBalance = emp[walletField];
 
-    // Restrict operation if leave day span exceeds available wallet balance tokens
     if (currentBalance < daySpan) {
       return { 
         success: false, 
@@ -319,7 +377,7 @@ export async function approveOrRejectLeaveWithBalanceAction(companyId: string, r
       .eq('id', emp.id);
 
     if (decrementError) {
-      return { success: false, error: `Balance deduction calculation execution step blocked: ${decrementError.message}` };
+      return { success: false, error: String(decrementError.message) };
     }
 
     const { error: finalApproveError } = await supabaseAdmin
@@ -328,7 +386,7 @@ export async function approveOrRejectLeaveWithBalanceAction(companyId: string, r
       .eq('id', requestId);
 
     if (finalApproveError) {
-      return { success: false, error: `Balance decremented but final ticket status mutation failed: ${finalApproveError.message}` };
+      return { success: false, error: String(finalApproveError.message) };
     }
 
     // 5. Stream transactional information logs trace down to central audit system
@@ -342,6 +400,6 @@ export async function approveOrRejectLeaveWithBalanceAction(companyId: string, r
     return { success: true };
 
   } catch (err: any) {
-    return { success: false, error: err.message || 'An unhandled transactional validation error occurred.' };
+    return { success: false, error: err?.message ? String(err.message) : 'An unhandled transactional validation error occurred.' };
   }
 }
