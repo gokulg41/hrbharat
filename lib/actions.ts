@@ -21,8 +21,8 @@ export async function onboardEmployeeAction(data: {
   department: string;
   monthlySalary: number;
   employeeCode: string;
-  bankAccount: string;
-  ifscCode: string;
+  bankAccount: string|null;
+  ifscCode: string|null;
   joiningDate: string;
 }) {
   try {
