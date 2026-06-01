@@ -17,6 +17,7 @@ import {
   Cpu
 } from 'lucide-react';
 
+
 export default function PremiumAdminUnifiedDashboard() {
   // Operational Pipeline States
   const [fullName, setFullName] = useState<string>('');
@@ -57,6 +58,7 @@ export default function PremiumAdminUnifiedDashboard() {
   const [companyName, setCompanyName] = useState<string>('Enterprise Workspace Node');
   
   const [loading, setLoading] = useState<boolean>(true);
+  const [initError, setInitError] = useState<string | null>(null); // NEW: tracks workspace load errors
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -67,21 +69,21 @@ export default function PremiumAdminUnifiedDashboard() {
   const [editSalary, setEditSalary] = useState<string>('');
   const [editBankAccount, setEditBankAccount] = useState<string>('');
   const [editIfscCode, setEditIfscCode] = useState<string>('');
-  const handleUpdateWorkflowStatus = async (table: string, id: string, status: string) => {
-  try {
-    const { error } = await supabase
-      .from(table)
-      .update({ status: status })
-      .eq('id', id);
 
-    if (error) throw error;
-    
-    // Optional: Refresh your local component data here to reflect the updated state
-    console.log(`Successfully updated status to ${status} in ${table}`);
-  } catch (error) {
-    console.error('Error updating workflow status:', error);
-  }
-};
+  const handleUpdateWorkflowStatus = async (table: string, id: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from(table)
+        .update({ status: status })
+        .eq('id', id);
+
+      if (error) throw error;
+      if (companyId) await refreshOperationalData(companyId);
+    } catch (error) {
+      console.error('Error updating workflow status:', error);
+    }
+  };
+  
 
   const refreshOperationalData = async (targetCompanyId: string) => {
     try {
@@ -111,42 +113,149 @@ export default function PremiumAdminUnifiedDashboard() {
 
   useEffect(() => {
     async function loadAdminWorkspace() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
-      if (profile?.company_id) {
-        setCompanyId(profile.company_id);
-        const { data: comp } = await supabase.from('companies').select('name').eq('id', profile.company_id).single();
-        if (comp?.name) setCompanyName(comp.name);
-        const { data: geoSettings } = await supabase.from('company_settings').select('*').eq('company_id', profile.company_id).single();
-        if (geoSettings) {
-          setGeoLat(geoSettings.latitude.toString()); setGeoLng(geoSettings.longitude.toString()); setGeoRadius(geoSettings.radius_meters.toString());
-          if (geoSettings.allowed_ip) setAllowedIpInput(geoSettings.allowed_ip);
-        }
-        await refreshOperationalData(profile.company_id);
+      // DEBUG: Check auth user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log("[DEBUG] auth user:", user?.id, "| error:", userError);
+
+      if (!user) {
+        console.warn("[DEBUG] No authenticated user found. Aborting workspace load.");
+        setInitError("No authenticated user session found. Please log in again.");
+        setLoading(false);
+        return;
       }
+
+      // DEBUG: Fetch profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+      console.log("[DEBUG] profile:", profile, "| error:", profileError);
+
+      if (profileError) {
+        console.error("[DEBUG] Profile fetch failed:", profileError.message);
+        setInitError(`Profile fetch failed: ${profileError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!profile?.company_id) {
+        console.warn("[DEBUG] Profile exists but company_id is null or missing.");
+        setInitError("Your admin profile has no company assigned. Contact support.");
+        setLoading(false);
+        return;
+      }
+
+      // All good — set companyId and load data
+      console.log("[DEBUG] company_id resolved:", profile.company_id);
+      setCompanyId(profile.company_id);
+
+      const { data: comp } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', profile.company_id)
+        .single();
+
+      if (comp?.name) setCompanyName(comp.name);
+
+      const { data: geoSettings } = await supabase
+        .from('company_settings')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .single();
+
+      if (geoSettings) {
+        setGeoLat(geoSettings.latitude.toString());
+        setGeoLng(geoSettings.longitude.toString());
+        setGeoRadius(geoSettings.radius_meters.toString());
+        if (geoSettings.allowed_ip) setAllowedIpInput(geoSettings.allowed_ip);
+      }
+
+      await refreshOperationalData(profile.company_id);
       setLoading(false);
     }
+
     loadAdminWorkspace();
   }, []);
 
   const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyId) return;
-    setSubmitting(true); setStatusMessage(null);
-    const res = await onboardEmployeeAction({
-      companyId, fullName: fullName.trim(), email: email.toLowerCase().trim(), phone: phone.trim(),
-      designation: designation.trim(), department: department.trim(), monthlySalary: Number(monthlySalary) || 0,
-      employeeCode: empCodeInput.toUpperCase().trim(), bankAccount: bankAccount.trim(), ifscCode: ifscCode.toUpperCase().trim(), joiningDate
-    });
-    if (res.success) {
-      setStatusMessage({ type: 'success', text: `Asset provisioned securely. Key Token: ${res.tempPassword}` });
-      await refreshOperationalData(companyId);
-      setFullName(''); setEmail(''); setPhone(''); setDesignation(''); setDepartment(''); setMonthlySalary(''); setEmpCodeInput(''); setBankAccount(''); setIfscCode('');
-    } else {
-      setStatusMessage({ type: 'error', text: res.error || 'Fault' });
+
+    // DEBUG: Log companyId at submit time
+    console.log("[DEBUG] handleOnboardSubmit fired | companyId:", companyId);
+
+    if (!companyId) {
+      setStatusMessage({ type: 'error', text: 'Company context not loaded. Refresh the page and try again.' });
+      return;
     }
-    setSubmitting(false);
+
+    setSubmitting(true); 
+    setStatusMessage(null);
+    
+    const payload = {
+      companyId: String(companyId),
+      fullName: String(fullName).trim(),
+      email: String(email).toLowerCase().trim(),
+      phone: String(phone).trim(),
+      designation: String(designation).trim() || 'Staff Consultant',
+      department: String(department).trim() || 'Operations',
+      monthlySalary: Number(monthlySalary) || 0,
+      employeeCode: String(empCodeInput).toUpperCase().trim(),
+      bankAccount: String(bankAccount).trim() || null,
+      ifscCode: String(ifscCode).toUpperCase().trim() || null,
+      joiningDate: String(joiningDate)
+    };
+
+    // DEBUG: Log payload before dispatch
+    console.log("[DEBUG] onboarding payload:", payload);
+
+    try {
+      const res = await onboardEmployeeAction(payload);
+
+      // DEBUG: Log raw server action response
+      console.log("[DEBUG] onboardEmployeeAction response:", res);
+      
+      if (!res) {
+        setStatusMessage({ 
+          type: 'error', 
+          text: 'The server action dropped the payload mapping without responding.' 
+        });
+        return;
+      }
+      
+      if (res.success) {
+        setStatusMessage({ 
+          type: 'success', 
+          text: `Asset provisioned securely. Temporary Code Token: ${String(res.tempPassword)}` 
+        });
+        
+        await refreshOperationalData(String(companyId));
+        
+        setFullName(''); 
+        setEmail(''); 
+        setPhone(''); 
+        setDesignation(''); 
+        setDepartment(''); 
+        setMonthlySalary(''); 
+        setEmpCodeInput(''); 
+        setBankAccount(''); 
+        setIfscCode('');
+      } else {
+        setStatusMessage({ 
+          type: 'error', 
+          text: res.error ? String(res.error) : 'Administrative entry validation failure.' 
+        });
+      }
+    } catch (err: any) {
+      console.error("[DEBUG] onboardEmployeeAction threw:", err);
+      setStatusMessage({ 
+        type: 'error', 
+        text: `Network handshake failure: ${err?.message ? String(err.message) : 'Connection dropped mid-transit.'}` 
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCreateShift = async (e: React.FormEvent) => {
@@ -196,10 +305,23 @@ export default function PremiumAdminUnifiedDashboard() {
 
   const totalPayrollLiability = employees.reduce((sum, emp) => sum + (Number(emp.monthly_salary) || 0), 0);
   const deptCounts = employees.reduce((acc: any, emp) => { acc[emp.department || 'Operations'] = (acc[emp.department || 'Operations'] || 0) + 1; return acc; }, {});
-  const totalEmpCount = employees.length || 1;
   const currentAttendanceRate = employees.length > 0 ? Math.round((todayAttendance.length / employees.length) * 100) : 0;
 
-  if (loading) return <div className="p-24 text-center font-mono text-xs text-neutral-400 animate-pulse">Synchronizing universal cluster configuration maps...</div>;
+  if (loading) return (
+    <div className="p-24 text-center font-mono text-xs text-neutral-400 animate-pulse">
+      Synchronizing universal cluster configuration maps...
+    </div>
+  );
+
+  // NEW: Show a clear error if workspace failed to initialize (no user / no companyId)
+  if (initError) return (
+    <div className="p-24 text-center font-mono text-xs text-red-400 space-y-2">
+      <ShieldAlert className="w-6 h-6 mx-auto mb-3" />
+      <p className="font-bold uppercase tracking-wider">Workspace Initialization Failed</p>
+      <p>{initError}</p>
+      <p className="text-slate-500 text-[10px] mt-4">Check browser console for [DEBUG] logs for more detail.</p>
+    </div>
+  );
 
   return (
     <div className="premium-canvas min-h-screen p-6 lg:p-12 space-y-8 max-w-[1600px] mx-auto bg-[#0B0F17]">
@@ -219,6 +341,14 @@ export default function PremiumAdminUnifiedDashboard() {
           <div className="bg-[#1C2641]/40 p-4 border border-white/[0.04] rounded-xl"><span className="text-[9px] text-slate-400 font-sans block uppercase font-bold tracking-wider">Active Tasks</span><span className="text-lg font-bold">{leaveRequests.length + advanceRequests.length + regularizations.length}</span></div>
         </div>
       </div>
+
+      {/* STATUS MESSAGE BANNER FEED */}
+      {statusMessage && (
+        <div className={`p-4 rounded-xl border text-xs font-mono flex items-center space-x-2 ${statusMessage.type === 'success' ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400' : 'bg-red-950/40 border-red-500/30 text-red-400'}`}>
+          <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+          <span>{statusMessage.text}</span>
+        </div>
+      )}
 
       {/* METRIC GRIDS PLATFORMS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
