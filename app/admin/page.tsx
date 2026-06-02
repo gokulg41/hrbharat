@@ -403,7 +403,7 @@ export default function PremiumAdminUnifiedDashboard() {
             <div className="grid grid-cols-2 gap-2"><input type="text" value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Designation" className="premium-input" /><input type="text" value={department} onChange={e => setDepartment(e.target.value)} placeholder="Department" className="premium-input" /></div>
             <div className="grid grid-cols-2 gap-2"><input type="date" required value={joiningDate} onChange={e => setJoiningDate(e.target.value)} className="premium-input text-slate-400" /><input type="number" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value)} placeholder="Gross Package" className="premium-input" /></div>
             <div className="bg-[#070A10] p-3 border border-white/[0.04] rounded-xl grid grid-cols-2 gap-2"><input type="text" value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="Account Number" className="text-xs p-2 border border-white/[0.04] bg-[#131B2E] text-white rounded-lg w-full focus:outline-none" /><input type="text" value={ifscCode} onChange={e => setIfscCode(e.target.value)} placeholder="IFSC Routing Code" className="text-xs p-2 border border-white/[0.04] bg-[#131B2E] text-white rounded-lg w-full focus:outline-none" /></div>
-            <button type="submit" disabled={submitting} className="premium-button-matte w-full">{submitting ? 'Processing...' : 'Authorize Node Entry'}</button>
+            <button type="submit" disabled={submitting} className="premium-button-matte w-full">{submitting ? 'Processing...' : 'OnBoard New Worker'}</button>
           </form>
         </div>
 
