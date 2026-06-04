@@ -1,6 +1,22 @@
 import "./globals.css";
 import "./theme.css";
 
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
 export const metadata = {
   title: "HRBharat | Enterprise",
   description: "Premium HR Management SaaS Platform",
@@ -12,15 +28,22 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
+    >
       <head>
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body>
         {children}
-        
+
         {/* PWA Service Worker Registration Script */}
         <script
           dangerouslySetInnerHTML={{

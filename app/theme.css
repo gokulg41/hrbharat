@@ -1,77 +1,195 @@
-/* HRBharat Universal Midnight Obsidian Premium Dark Theme Config Sheet */
-:root {
-  --studio-canvas: #0B0F17;
-  --ink-onyx: #FFFFFF;
-  --text-muted: #94A3B8;
-  --card-bg-solid: #131B2E;
-  --card-bg-hover: #17223B;
-  --border-ultra-thin: rgba(255, 255, 255, 0.06);
-  --border-thin-hover: rgba(255, 255, 255, 0.15);
-  --dark-terminal-bg: #070A10;
-  --dark-terminal-border: rgba(255, 255, 255, 0.04);
-  --dark-terminal-text: #F1F5F9;
-  --shadow-luxury-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
+/* HRBharat Universal Premium Architecture Theme Config Sheet */
 
-/* Theme Canvas Tones */
-.premium-canvas {
-  background-color: var(--studio-canvas);
-  color: var(--ink-onyx);
-}
+@layer base {
+  /* ==========================================
+     1. GLOBAL THEME DESIGN TOKENS (VARIABLES)
+     ========================================== */
 
-/* Component Surface Tones - Layout Neutral */
-.premium-card {
-  background-color: var(--card-bg-solid);
-  border: 1px solid var(--border-ultra-thin);
-  box-shadow: var(--shadow-luxury-xs);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
+  /* Default: Slate Neutral Dark Matrix */
+  :root, [data-theme="dark"] {
+    --studio-canvas: #111318;
+    --ink-onyx: #F0F2F5;
+    --text-muted: #8A95A3;
 
-.premium-card:hover {
-  border-color: var(--border-thin-hover);
-  background-color: var(--card-bg-hover);
-}
+    /* Component Surfaces */
+    --card-bg-solid: #1A1D24;
+    --card-bg-hover: #1F2330;
+    --border-ultra-thin: rgba(240, 242, 245, 0.07);
+    --border-thin-hover: rgba(240, 242, 245, 0.16);
 
-/* Form Elements Styling Tones */
-.premium-input {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-ultra-thin);
-  color: var(--ink-onyx);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
+    /* Form Elements */
+    --input-bg-inline: rgba(240, 242, 245, 0.04);
+    --input-bg-focus: rgba(240, 242, 245, 0.07);
+    --input-border-focus: rgba(240, 242, 245, 0.28);
+    --input-placeholder: #505A68;
 
-.premium-input:focus {
-  outline: none;
-  background-color: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.3);
-}
+    /* Action Parameters */
+    --button-matte-bg: #F0F2F5;
+    --button-matte-text: #111318;
+    --button-matte-hover: #D8DCE2;
 
-.premium-input::placeholder {
-  color: #57657A;
-}
+    /* Dedicated Telemetry Modules */
+    --dark-terminal-bg: #0C0E12;
+    --dark-terminal-border: rgba(240, 242, 245, 0.05);
+    --dark-terminal-text: #E8ECF0;
+    --shadow-luxury-xs: 0 1px 3px rgba(0, 0, 0, 0.4);
 
-/* Matte Action Buttons Tones */
-.premium-button-matte {
-  background-color: #FFFFFF;
-  color: #0B0F17;
-  letter-spacing: 0.06em;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
-  cursor: pointer;
-  border: none;
-}
+    /* Typography Scale */
+    --font-primary: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --tracking-tight: -0.02em;
+    --tracking-normal: -0.01em;
+    --tracking-wide: 0.04em;
+  }
 
-.premium-button-matte:hover {
-  background-color: #E2E8F0;
-}
+  /* Minimalist Studio Paper Light Matrix */
+  [data-theme="light"] {
+    --studio-canvas: #F4F6F9;
+    --ink-onyx: #0F1117;
+    --text-muted: #5A6374;
 
-.premium-button-matte:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
+    /* Component Surfaces */
+    --card-bg-solid: #FFFFFF;
+    --card-bg-hover: #F0F2F5;
+    --border-ultra-thin: #DDE1E8;
+    --border-thin-hover: #B8BFC9;
 
-/* Shell Terminal Container Tones */
-.luxury-terminal {
-  background-color: var(--dark-terminal-bg);
-  border: 1px solid var(--dark-terminal-border);
-  color: var(--dark-terminal-text);
+    /* Form Elements */
+    --input-bg-inline: #FFFFFF;
+    --input-bg-focus: #FFFFFF;
+    --input-border-focus: #8A95A3;
+    --input-placeholder: #8A95A3;
+
+    /* Action Parameters */
+    --button-matte-bg: #0F1117;
+    --button-matte-text: #F4F6F9;
+    --button-matte-hover: #1E2333;
+
+    /* Dedicated Telemetry Modules */
+    --dark-terminal-bg: #0F1117;
+    --dark-terminal-border: #1E2333;
+    --dark-terminal-text: #F4F6F9;
+    --shadow-luxury-xs: 0 1px 3px rgba(15, 17, 23, 0.08);
+
+    /* Typography Scale — same across both themes */
+    --font-primary: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --tracking-tight: -0.02em;
+    --tracking-normal: -0.01em;
+    --tracking-wide: 0.04em;
+  }
+
+  /* ==========================================
+     2. GLOBAL UTILITY CLASS ASSIGNMENTS
+     ========================================== */
+
+  /* Theme Canvas */
+  .premium-canvas {
+    background-color: var(--studio-canvas);
+    color: var(--ink-onyx);
+    font-family: var(--font-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Component Surface */
+  .premium-card {
+    background-color: var(--card-bg-solid);
+    border: 1px solid var(--border-ultra-thin);
+    box-shadow: var(--shadow-luxury-xs);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .premium-card:hover {
+    border-color: var(--border-thin-hover);
+    background-color: var(--card-bg-hover);
+  }
+
+  /* Form Elements */
+  .premium-input {
+    background-color: var(--input-bg-inline);
+    border: 1px solid var(--border-ultra-thin);
+    color: var(--ink-onyx);
+    font-family: var(--font-primary);
+    font-size: 0.875rem;
+    letter-spacing: var(--tracking-normal);
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .premium-input:focus {
+    outline: none;
+    background-color: var(--input-bg-focus);
+    border-color: var(--input-border-focus);
+  }
+
+  .premium-input::placeholder {
+    color: var(--input-placeholder);
+  }
+
+  /* Matte Action Buttons */
+  .premium-button-matte {
+    background-color: var(--button-matte-bg);
+    color: var(--button-matte-text);
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-medium);
+    font-size: 0.8125rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+    border: none;
+  }
+
+  .premium-button-matte:hover {
+    background-color: var(--button-matte-hover);
+  }
+
+  .premium-button-matte:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Shell Terminal Container */
+  .luxury-terminal {
+    background-color: var(--dark-terminal-bg);
+    border: 1px solid var(--dark-terminal-border);
+    color: var(--dark-terminal-text);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Typography Helpers */
+  .text-display {
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--ink-onyx);
+  }
+
+  .text-label {
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-medium);
+    font-size: 0.6875rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .text-body {
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-normal);
+    letter-spacing: var(--tracking-normal);
+    color: var(--ink-onyx);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
 }

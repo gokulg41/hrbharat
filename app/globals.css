@@ -1,43 +1,81 @@
 @import "tailwindcss";
 
+@layer base {
+  :root {
+     --studio-canvas: #ffffff;
+     --ink-onyx: #111318;
+    --text-muted: #8a95a3;
+    --card-bg-solid: #1a1d24;
+    --card-bg-hover: #1f2330;
+    --border-ultra-thin: rgba(240, 242, 245, 0.07);
+    --border-thin-hover: rgba(240, 242, 245, 0.16);
+    --dark-terminal-bg: #0c0e12;
+    --dark-terminal-border: rgba(240, 242, 245, 0.05);
+    --dark-terminal-text: #e8ecf0;
+    --shadow-luxury-xs: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
 
-html, body {
-  background-color: #0B0F17;
-  color: #FFFFFF;
-  font-family: 'Inter', sans-serif;
+html,
+body {
+  background-color: var(--studio-canvas);
+  color: var(--ink-onyx);
+
+  /* Uses the font variables from next/font */
+  font-family: var(--font-sans);
+
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: -0.01em;
   margin: 0;
   padding: 0;
 }
 
-/* Custom low-profile dark mode scrollbar specs */
+/* IBM Plex Mono */
+code,
+pre,
+kbd,
+samp,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Low-profile dark mode scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #0B0F17;
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(240, 242, 245, 0.1);
   border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-/* Force clear visibility on all form inputs and panels */
-input, select, textarea {
-  color: #0f172a !important; /* Deep text color (slate-900) */
-  background-color: #ffffff !important; /* Clean white background */
+  background: rgba(240, 242, 245, 0.22);
 }
 
-/* Ensure labels remain readable */
+/* Form inputs */
+input,
+select,
+textarea {
+  font-family: var(--font-sans);
+  color: #0f1117 !important;
+  background-color: #ffffff !important;
+}
+
 label {
-  color: #334155 !important; /* Medium dark slate text */
+  color: #2d3440 !important;
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
-/* Style the placeholder text so it doesn't blend into the white background */
-input::placeholder, textarea::placeholder {
-  color: #94a3b8 !important; /* Light gray placeholder text */
+input::placeholder,
+textarea::placeholder {
+  color: #8a95a3 !important;
 }
