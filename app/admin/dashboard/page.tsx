@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { 
-  Users, 
-  IndianRupee, 
-  Briefcase, 
-  Layers, 
-  UserPlus, 
-  MapPin, 
-  Calendar, 
+import {
+  Users,
+  IndianRupee,
+  Briefcase,
+  Layers,
+  UserPlus,
+  MapPin,
+  Calendar,
   ArrowUpRight,
   ShieldAlert,
   Building,
@@ -20,223 +20,419 @@ import {
   Search,
   CheckCircle2,
   XCircle,
-  Eye
+  Eye,
+  ClipboardList,
+  ChevronRight,
+  Circle,
 } from 'lucide-react';
 
+/* ─────────────────────────────────────────────
+   Tiny helpers
+───────────────────────────────────────────── */
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  const hues = [210, 160, 340, 30, 280, 195];
+  const hue = hues[name.charCodeAt(0) % hues.length];
+  return (
+    <span
+      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-semibold shrink-0"
+      style={{ background: `hsl(${hue} 60% 92%)`, color: `hsl(${hue} 55% 38%)` }}
+    >
+      {initials}
+    </span>
+  );
+}
+
+function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
+  const map: Record<string, string> = {
+    gray: 'bg-[#EAE2CE] text-neutral-500',
+    amber: 'bg-amber-50 text-amber-600',
+    teal: 'bg-teal-50 text-teal-700',
+    rose: 'bg-rose-50 text-rose-600',
+    emerald: 'bg-emerald-50 text-emerald-700',
+  };
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${map[color]}`}>
+      {children}
+    </span>
+  );
+}
+
+function Divider() {
+  return <div className="border-t border-[#E8E0CC] my-0" />;
+}
+
+function SectionHeader({ icon, title, count, href }: { icon: React.ReactNode; title: string; count?: number; href?: string }) {
+  return (
+    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+      <div className="flex items-center gap-2 text-neutral-500">
+        <span className="w-4 h-4 flex items-center justify-center">{icon}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{title}</span>
+        {count !== undefined && (
+          <span className="text-[10px] font-semibold text-neutral-400 tabular-nums">({count})</span>
+        )}
+      </div>
+      {href && (
+        <Link href={href} className="flex items-center gap-0.5 text-[11px] text-neutral-400 hover:text-neutral-700 transition-colors">
+          View all <ChevronRight className="w-3 h-3" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Main Component
+───────────────────────────────────────────── */
 export default function AdminClientDashboard() {
   const router = useRouter();
-  
-  // App States Matrices
+
   const [profile, setProfile] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
   const [workforce, setWorkforce] = useState<any[]>([]);
   const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
   const [pendingAdvances, setPendingAdvances] = useState<any[]>([]);
-  
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [disconnectNode, setDisconnectNode] = useState(false);
 
   useEffect(() => {
     async function loadDashboardData() {
-      // 1. Authenticate check directly on the client side
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+      if (!user) { router.push('/login'); return; }
 
-      // 2. Fetch admin profile parameters
       const { data: prof } = await supabase
         .from('profiles')
         .select('company_id, full_name, role')
         .eq('id', user.id)
         .single();
 
-      if (!prof || prof.role !== 'admin') {
-        router.push('/login');
-        return;
-      }
-
+      if (!prof || prof.role !== 'admin') { router.push('/login'); return; }
       setProfile(prof);
 
-      // 3. Fallback isolation check for corporate connection
-      if (!prof.company_id) {
-        setDisconnectNode(true);
-        setLoading(false);
-        return;
-      }
+      if (!prof.company_id) { setDisconnectNode(true); setLoading(false); return; }
 
-      // 4. Fire data arrays query stream in parallel over client socket
-      const [companyRes, employeesRes, leavesRes, advancesRes] = await Promise.all([
+      const [companyRes, employeesRes, leavesRes, advancesRes, logsRes] = await Promise.all([
         supabase.from('companies').select('*').eq('id', prof.company_id).single(),
         supabase.from('employees').select('*').eq('company_id', prof.company_id),
-        supabase.from('leave_requests').select('*').eq('company_id', prof.company_id).eq('status', 'pending'),
-        supabase.from('advance_salary_requests').select('*').eq('company_id', prof.company_id).eq('status', 'pending')
+        supabase.from('leave_requests').select('*').eq('company_id', prof.company_id).eq('status', 'Pending'),
+        supabase.from('advance_salary_requests').select('*').eq('company_id', prof.company_id).eq('status', 'Pending'),
+        supabase.from('daily_tasks').select('*').eq('company_id', prof.company_id).order('created_at', { ascending: false }),
       ]);
 
       if (companyRes.data) setCompany(companyRes.data);
       if (employeesRes.data) setWorkforce(employeesRes.data);
       if (leavesRes.data) setPendingLeaves(leavesRes.data);
       if (advancesRes.data) setPendingAdvances(advancesRes.data);
-      
+      if (logsRes.data) setDailyLogs(logsRes.data);
       setLoading(false);
     }
-
     loadDashboardData();
   }, [router]);
 
-  // Action handlers for live approval workflows
-  const handleActionUpdate = async (table: 'leave_requests' | 'advance_salary_requests', id: string, status: 'approved' | 'rejected') => {
+  const handleActionUpdate = async (
+    table: 'leave_requests' | 'advance_salary_requests',
+    id: string,
+    status: 'Approved' | 'Rejected'
+  ) => {
     if (!profile?.company_id) return;
     const { error } = await supabase.from(table).update({ status }).eq('id', id);
     if (!error) {
-      if (table === 'leave_requests') {
-        setPendingLeaves(prev => prev.filter(item => item.id !== id));
-      } else {
-        setPendingAdvances(prev => prev.filter(item => item.id !== id));
-      }
+      if (table === 'leave_requests') setPendingLeaves((p) => p.filter((i) => i.id !== id));
+      else setPendingAdvances((p) => p.filter((i) => i.id !== id));
     }
   };
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Syncing Executive Control Center...</p>
+      <div className="min-h-screen bg-[#FDF8F0] flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 rounded-sm bg-neutral-200 animate-pulse" />
+          <p className="text-sm text-neutral-400 font-medium">Loading workspace…</p>
+        </div>
       </div>
     );
   }
 
+  /* ── Disconnected ── */
   if (disconnectNode) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white p-8 rounded-3xl border border-slate-200 max-w-md text-center shadow-sm">
-          <ShieldAlert className="w-12 h-12 text-amber-600 mx-auto mb-4" />
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">Corporate Node Disconnected</h2>
-          <p className="text-xs font-medium text-slate-500 mt-2 leading-relaxed">
-            Your profile successfully authenticated but is missing an assigned Company ID. Please complete your business registration node configuration.
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-6">
+        <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl p-8 max-w-sm w-full shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center mb-4">
+            <ShieldAlert className="w-5 h-5 text-amber-600" />
+          </div>
+          <h2 className="text-base font-semibold text-neutral-900">No workspace connected</h2>
+          <p className="text-sm text-neutral-500 mt-1.5 leading-relaxed">
+            Your account is authenticated but not linked to a company. Please complete your workspace setup to continue.
           </p>
         </div>
       </div>
     );
   }
 
-  // Live dynamic metric calculations
   const totalActiveWorkers = workforce.length;
   const totalMonthlyPayroll = workforce.reduce((sum, emp) => sum + (Number(emp.monthly_salary) || 0), 0);
   const totalAdvanceClaims = pendingAdvances.reduce((sum, req) => sum + req.requested_amount, 0);
 
+  /* ────────────────────────────────────────────
+     RENDER
+  ──────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6 lg:p-10 font-sans antialiased text-slate-800">
-      
-      {/* EXECUTIVE META HEADER */}
-      <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-slate-200/60 pb-6">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-bold text-teal-700 uppercase tracking-wider mb-1">
-            <Building className="w-3.5 h-3.5" />
-            <span>{company?.name || 'Corporate Node Cluster'}</span>
+    <div className="min-h-screen bg-[#F5F0E8] font-['Georgia',_serif] antialiased">
+
+      {/* ── Sidebar-style left rail (decorative top border) ── */}
+      <div className="fixed top-0 left-0 right-0 h-px bg-neutral-200 z-10" />
+
+      <div className="max-w-4xl mx-auto px-6 py-12 lg:py-16">
+
+        {/* ── Page Title block (Notion-style) ── */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-1">
+            <Building className="w-3.5 h-3.5 text-neutral-400" />
+            <span className="text-xs text-neutral-400 font-sans">{company?.name || 'Your Company'}</span>
           </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Operational Overview</h1>
-          <p className="text-xs font-medium text-slate-400">Welcome back, {profile?.full_name} • System Core Monitor</p>
-        </div>
+          <h1 className="text-4xl font-bold text-neutral-900 tracking-tight leading-tight">
+            Operational Overview
+          </h1>
+          <p className="text-neutral-500 text-sm font-sans mt-1.5">
+            Welcome back, <span className="text-neutral-700 font-medium">{profile?.full_name}</span>
+          </p>
 
-        {/* FAST-ACTION BUTTON PANEL */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/admin" className="inline-flex items-center space-x-2 bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold py-2.5 px-4 rounded-xl shadow-2xs border border-slate-200/80 transition-all cursor-pointer">
-            <Search className="w-4 h-4 text-slate-500" />
-            <span>Staff Lookup Directory</span>
-          </Link>
-          <Link href="/admin" className="inline-flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-md transition-all cursor-pointer">
-            <UserPlus className="w-4 h-4" />
-            <span>Onboard New Worker</span>
-          </Link>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto space-y-8">
-
-        {/* METRICS METERS PANELS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="bg-white p-6 border border-slate-200/60 rounded-3xl shadow-3xs relative">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block">Active Personnel</span>
-              <div className="p-2 bg-teal-50 border border-teal-100 rounded-xl text-teal-700"><Users className="w-4 h-4" /></div>
-            </div>
-            <div className="text-4xl font-black text-slate-900 tracking-tight">{totalActiveWorkers}</div>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">Active records inside workforce array.</p>
-          </div>
-
-          <div className="bg-white p-6 border border-slate-200/60 rounded-3xl shadow-3xs relative">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block">Monthly Payroll</span>
-              <div className="p-2 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700"><IndianRupee className="w-4 h-4" /></div>
-            </div>
-            <div className="text-3xl font-black text-slate-900 tracking-tight">₹{totalMonthlyPayroll.toLocaleString('en-IN')}</div>
-            <p className="text-[11px] text-slate-400 font-medium mt-3">Gross recurring infrastructure liability.</p>
-          </div>
-
-          <div className="bg-white p-6 border border-slate-200/60 rounded-3xl shadow-3xs relative">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block">Pending Leaves</span>
-              <div className="p-2 bg-amber-50 border border-amber-100 rounded-xl text-amber-700"><Clock className="w-4 h-4" /></div>
-            </div>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-4xl font-black text-slate-900 tracking-tight">{pendingLeaves.length}</span>
-              {pendingLeaves.length > 0 && (
-                <span className="text-[10px] font-black bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-md animate-pulse">Action Required</span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">Time-off tokens awaiting executive signature.</p>
-          </div>
-
-          <div className="bg-white p-6 border border-slate-200/60 rounded-3xl shadow-3xs relative">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block">Advance Requests</span>
-              <div className="p-2 bg-rose-50 border border-rose-100 rounded-xl text-rose-700"><Banknote className="w-4 h-4" /></div>
-            </div>
-            <div className="text-3xl font-black text-slate-900 tracking-tight">₹{totalAdvanceClaims.toLocaleString('en-IN')}</div>
-            <p className="text-[11px] text-slate-400 font-medium mt-3">Aggregated short-term asset credit claims.</p>
+          {/* Quick actions — inline, text-link style */}
+          <div className="flex items-center gap-4 mt-5">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors font-sans group"
+            >
+              <Search className="w-3.5 h-3.5 group-hover:text-neutral-900" />
+              Staff directory
+            </Link>
+            <span className="text-neutral-200">·</span>
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors font-sans group"
+            >
+              <UserPlus className="w-3.5 h-3.5 group-hover:text-neutral-900" />
+              Onboard employee
+            </Link>
           </div>
         </div>
 
-        {/* WORKFORCE AUDITING LAYOUT */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-3xl shadow-3xs p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-md font-black text-slate-900 tracking-tight">Roster Matrix Audit</h3>
-                  <p className="text-[11px] font-medium text-slate-400 mt-0.5">Quick lookup of core active asset profiles.</p>
-                </div>
-                <Link href="/admin" className="text-[11px] font-bold text-teal-700 hover:text-teal-800 flex items-center space-x-0.5 group">
-                  <span>Open Staff Check Page</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </Link>
+        {/* ── Metric callouts ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-neutral-200 rounded-xl overflow-hidden mb-10 border border-[#DDD5C0]">
+          {[
+            {
+              label: 'Active Personnel',
+              value: String(totalActiveWorkers),
+              sub: 'employees on roster',
+              icon: <Users className="w-3.5 h-3.5" />,
+              accent: 'text-teal-600',
+            },
+            {
+              label: 'Monthly Payroll',
+              value: `₹${totalMonthlyPayroll.toLocaleString('en-IN')}`,
+              sub: 'gross recurring liability',
+              icon: <IndianRupee className="w-3.5 h-3.5" />,
+              accent: 'text-emerald-600',
+            },
+            {
+              label: 'Pending Leaves',
+              value: String(pendingLeaves.length),
+              sub: pendingLeaves.length > 0 ? 'awaiting approval' : 'all clear',
+              icon: <Clock className="w-3.5 h-3.5" />,
+              accent: pendingLeaves.length > 0 ? 'text-amber-600' : 'text-neutral-400',
+              urgent: pendingLeaves.length > 0,
+            },
+            {
+              label: 'Advance Requests',
+              value: `₹${totalAdvanceClaims.toLocaleString('en-IN')}`,
+              sub: `${pendingAdvances.length} pending claims`,
+              icon: <Banknote className="w-3.5 h-3.5" />,
+              accent: pendingAdvances.length > 0 ? 'text-rose-500' : 'text-neutral-400',
+            },
+          ].map((m) => (
+            <div key={m.label} className="bg-[#FDF8F0] px-5 py-5 flex flex-col gap-2">
+              <div className={`${m.accent} flex items-center gap-1.5 font-sans`}>
+                {m.icon}
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{m.label}</span>
               </div>
+              <div className="flex items-end gap-2">
+                <span className="text-2xl font-bold text-neutral-900 leading-none font-sans tabular-nums">
+                  {m.value}
+                </span>
+                {m.urgent && (
+                  <span className="text-[9px] font-sans font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded mb-0.5">
+                    Action needed
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-neutral-400 font-sans">{m.sub}</p>
+            </div>
+          ))}
+        </div>
 
-              {workforce.length === 0 ? (
-                <div className="text-center py-12 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Roster Array Empty</p>
+        {/* ── Two-column body ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+          {/* ── LEFT: Leave + Advances ── */}
+          <div className="lg:col-span-3 space-y-6">
+
+            {/* Leave Approvals */}
+            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+              <SectionHeader
+                icon={<Circle className="w-3 h-3 fill-amber-400 text-amber-400" />}
+                title="Leave Queue"
+                count={pendingLeaves.length}
+              />
+              <Divider />
+
+              {pendingLeaves.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-neutral-400 font-sans">No pending leave requests</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100 max-h-[290px] overflow-y-auto pr-1">
-                  {workforce.slice(0, 4).map((emp) => (
-                    <div key={emp.id} className="py-3.5 flex items-center justify-between first:pt-0 last:pb-0">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-black text-slate-900">{emp.full_name}</span>
-                          <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">{emp.employee_code}</span>
+                <div className="divide-y divide-[#E8E0CC] max-h-64 overflow-y-auto">
+                  {pendingLeaves.map((ticket) => (
+                    <div key={ticket.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-[#F0EAD9] transition-colors">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <Avatar name={ticket.employee_name} />
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-sm font-semibold text-neutral-900 font-sans leading-snug">{ticket.employee_name}</p>
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            <Badge color="gray">{ticket.employee_code}</Badge>
+                            <Badge color="teal">{ticket.leave_type}</Badge>
+                          </div>
+                          <p className="text-[11px] text-neutral-400 font-sans flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {ticket.start_date} – {ticket.end_date}
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-medium">
-                          {emp.designation || 'Staff Member'} • <span className="text-slate-500">{emp.department || 'Operations'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                        <button
+                          onClick={() => handleActionUpdate('leave_requests', ticket.id, 'Approved')}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                          title="Approve"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleActionUpdate('leave_requests', ticket.id, 'Rejected')}
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Reject"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Advance Salary */}
+            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+              <SectionHeader
+                icon={<Circle className="w-3 h-3 fill-rose-400 text-rose-400" />}
+                title="Advance Salary"
+                count={pendingAdvances.length}
+              />
+              <Divider />
+
+              {pendingAdvances.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-neutral-400 font-sans">No pending advance requests</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E8E0CC] max-h-64 overflow-y-auto">
+                  {pendingAdvances.map((claim) => (
+                    <div key={claim.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-[#F0EAD9] transition-colors">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <Avatar name={claim.employee_name} />
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-neutral-900 font-sans leading-snug">{claim.employee_name}</p>
+                            <Badge color="gray">{claim.employee_code}</Badge>
+                          </div>
+                          {claim.reason && (
+                            <p className="text-[11px] text-neutral-400 font-sans italic truncate max-w-xs">"{claim.reason}"</p>
+                          )}
+                          <p className="text-xs font-semibold text-rose-600 font-sans">
+                            ₹{claim.requested_amount.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                        <button
+                          onClick={() => handleActionUpdate('advance_salary_requests', claim.id, 'Approved')}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                          title="Approve"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleActionUpdate('advance_salary_requests', claim.id, 'Rejected')}
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Reject"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* EOD Logs */}
+            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+              <SectionHeader
+                icon={<ClipboardList className="w-3.5 h-3.5 text-neutral-400" />}
+                title="Daily Output Logs"
+                count={dailyLogs.length}
+              />
+              <Divider />
+
+              {dailyLogs.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-neutral-400 font-sans">No EOD logs submitted yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E8E0CC] max-h-96 overflow-y-auto">
+                  {dailyLogs.map((log) => (
+                    <div key={log.id} className="px-4 py-3.5 hover:bg-[#F0EAD9] transition-colors space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar name={log.employee_name} />
+                          <div>
+                            <span className="text-sm font-semibold text-neutral-900 font-sans">{log.employee_name}</span>
+                            <Badge color="gray">{log.employee_code}</Badge>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-sans text-neutral-400 shrink-0 tabular-nums">
+                          {new Date(log.submitted_at || log.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </span>
+                      </div>
+                      {log.task_priorities?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pl-9">
+                          {log.task_priorities.map((task: string, i: number) => (
+                            <Badge key={i} color="teal">{task}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      {log.eod_submission && (
+                        <p className="text-[12px] text-neutral-600 font-serif leading-relaxed pl-9 border-l-2 border-[#E8E0CC] ml-[34px]">
+                          {log.eod_submission}
                         </p>
-                      </div>
-                      <div className="text-right flex items-center space-x-4">
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">₹{Number(emp.monthly_salary || 0).toLocaleString('en-IN')}</p>
-                          <p className="text-[9px] text-slate-400 font-mono">{emp.phone_number || 'No Contact Data'}</p>
-                        </div>
-                        <Link href="/admin" className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-600 transition-all"><Eye className="w-3.5 h-3.5" /></Link>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -244,93 +440,86 @@ export default function AdminClientDashboard() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200/60 rounded-3xl shadow-3xs p-6 space-y-5">
-            <div>
-              <h3 className="text-md font-black text-slate-900 tracking-tight">Active Terminal Controls</h3>
-              <p className="text-[11px] font-medium text-slate-400 mt-0.5">Geofence compliance criteria rule bounds.</p>
+          {/* ── RIGHT: Roster + Geofence ── */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Roster */}
+            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+              <SectionHeader
+                icon={<Users className="w-3.5 h-3.5 text-neutral-400" />}
+                title="Team Roster"
+                href="/admin"
+              />
+              <Divider />
+
+              {workforce.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-neutral-400 font-sans">No employees added yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E8E0CC]">
+                  {workforce.slice(0, 5).map((emp) => (
+                    <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-2 hover:bg-[#F0EAD9] transition-colors group">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar name={emp.full_name} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-neutral-900 font-sans truncate leading-snug">{emp.full_name}</p>
+                          <p className="text-[11px] text-neutral-400 font-sans truncate">
+                            {emp.designation || 'Staff'} · {emp.department || 'Operations'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-semibold text-neutral-700 font-sans tabular-nums hidden sm:block">
+                          ₹{Number(emp.monthly_salary || 0).toLocaleString('en-IN')}
+                        </span>
+                        <Link
+                          href="/admin"
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-[#EAE2CE] opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                  {workforce.length > 5 && (
+                    <div className="px-4 py-3">
+                      <Link href="/admin" className="text-xs text-neutral-400 hover:text-neutral-700 font-sans transition-colors flex items-center gap-1">
+                        +{workforce.length - 5} more employees <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="space-y-3">
-              <div className="flex items-start space-x-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="p-2 bg-teal-50 border border-teal-100 rounded-xl text-teal-700 mt-0.5"><MapPin className="w-3.5 h-3.5" /></div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Secure Geofenced Gateways</p>
-                  <p className="text-[10px] text-slate-400 font-medium leading-normal mt-0.5">
-                    Terminal authorization limited strictly to corporate parameters of **{company?.allowed_radius_meters || 100} meters**.
-                  </p>
+
+            {/* Geofence */}
+            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+              <SectionHeader
+                icon={<MapPin className="w-3.5 h-3.5 text-neutral-400" />}
+                title="Compliance"
+              />
+              <Divider />
+              <div className="px-4 py-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin className="w-3.5 h-3.5 text-teal-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-900 font-sans">Geofenced Check-ins</p>
+                    <p className="text-[12px] text-neutral-500 font-sans mt-0.5 leading-relaxed">
+                      Attendance is restricted to within{' '}
+                      <span className="font-semibold text-neutral-700">
+                        {company?.allowed_radius_meters || 100} meters
+                      </span>{' '}
+                      of your registered office location.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+
           </div>
-        </div>
-
-        {/* WORKFLOW TRACKERS GATEWAY PIPELINES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
-          {/* LEAVE APPROVAL PIPELINE */}
-          <div className="bg-white border border-slate-200/60 rounded-3xl shadow-3xs p-6">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-4 flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              <span>Leave Approval Queue ({pendingLeaves.length})</span>
-            </h3>
-
-            {pendingLeaves.length === 0 ? (
-              <div className="text-center py-10 bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                All time-off clear • Zero pending filings
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
-                {pendingLeaves.map((ticket) => (
-                  <div key={ticket.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-black text-slate-900">{ticket.employee_name}</p>
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        Code: <span className="font-mono font-bold">{ticket.employee_code}</span> • Type: <span className="text-teal-700 font-bold">{ticket.leave_type}</span>
-                      </p>
-                      <p className="text-[9px] text-slate-400 font-medium flex items-center"><Calendar className="w-2.5 h-2.5 mr-1" /> {ticket.start_date} to {ticket.end_date}</p>
-                    </div>
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button onClick={() => handleActionUpdate('leave_requests', ticket.id, 'approved')} className="p-1.5 bg-white border border-slate-200 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all shadow-2xs cursor-pointer"><CheckCircle2 className="w-4 h-4" /></button>
-                      <button onClick={() => handleActionUpdate('leave_requests', ticket.id, 'rejected')} className="p-1.5 bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 rounded-xl transition-all shadow-2xs cursor-pointer"><XCircle className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ADVANCE PAYROLL PIPELINE */}
-          <div className="bg-white border border-slate-200/60 rounded-3xl shadow-3xs p-6">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-4 flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span>Advance Salary Ledgers ({pendingAdvances.length})</span>
-            </h3>
-
-            {pendingAdvances.length === 0 ? (
-              <div className="text-center py-10 bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Disbursement balances clean • Zero pending requests
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
-                {pendingAdvances.map((claim) => (
-                  <div key={claim.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center space-x-2">
-                        <p className="text-xs font-black text-slate-900">{claim.employee_name}</p>
-                        <span className="text-[9px] font-mono font-bold bg-slate-200/80 text-slate-700 px-1 py-0.2 rounded">{claim.employee_code}</span>
-                      </div>
-                      {claim.reason && <p className="text-[10px] text-slate-400 italic font-medium leading-tight max-w-xs truncate">"{claim.reason}"</p>}
-                      <p className="text-[11px] text-rose-700 font-bold mt-1">Claim: ₹{claim.requested_amount.toLocaleString('en-IN')}</p>
-                    </div>
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button onClick={() => handleActionUpdate('advance_salary_requests', claim.id, 'approved')} className="p-1.5 bg-white border border-slate-200 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all shadow-2xs cursor-pointer"><CheckCircle2 className="w-4 h-4" /></button>
-                      <button onClick={() => handleActionUpdate('advance_salary_requests', claim.id, 'rejected')} className="p-1.5 bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 rounded-xl transition-all shadow-2xs cursor-pointer"><XCircle className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
         </div>
 
       </div>

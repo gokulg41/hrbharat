@@ -18,13 +18,19 @@ export default function EmployeeMonitorFeed({
   // Premium Muted Fintech Status Badges Matrix
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved':
+      case 'Pending':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase bg-amber-50/80 text-amber-800 border border-amber-200/40 font-sans animate-pulse">
+            In Review
+          </span>
+        );
+      case 'Approved':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-sans">
             Approved
           </span>
         );
-      case 'rejected':
+      case 'Rejected':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase bg-rose-50 text-rose-800 border border-rose-200/60 font-sans">
             Rejected

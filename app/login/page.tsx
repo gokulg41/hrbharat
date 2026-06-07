@@ -66,7 +66,7 @@ export default function LoginPage() {
       // 3. Forward users based strictly on their true database parameters
       if (normalizedRole === 'admin' || normalizedRole === 'owner' || normalizedRole === 'manager') {
         // Management core goes straight to the primary administration control deck
-        router.push('/admin');
+        router.push('/admin/dashboard');
       } else if (normalizedRole === 'employee') {
         // Standard workforce personnel drop right into the punch-clock terminal layout
         router.push('/employee');
