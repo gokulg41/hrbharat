@@ -11,6 +11,7 @@ import {
   LogOut,
   Banknote,
   ChevronRight,
+  Users,
   Menu,
   X,
 } from 'lucide-react';
@@ -20,6 +21,9 @@ export default function AdminSidebarLayout({ children }: { children: React.React
   const [adminName, setAdminName] = useState('Administrator');
   const [companyName, setCompanyName] = useState('Your Company');
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close drawer on route change
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
     async function getWorkspaceIdentity() {
@@ -35,12 +39,10 @@ export default function AdminSidebarLayout({ children }: { children: React.React
     getWorkspaceIdentity();
   }, []);
 
-  // Close drawer whenever the route changes
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
-
   const navigationLinks = [
     { name: 'My Portal',      href: '/admin/dashboard',        icon: LayoutDashboard },
     { name: 'Workforce Deck', href: '/admin',                   icon: UserPlus },
+    { name: 'Roster',         href: '/admin/roster',            icon: Users },
     { name: 'Payroll',        href: '/admin/payroll',           icon: Banknote },
   ];
 
@@ -51,7 +53,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
 
   const initials = adminName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  // Shared sidebar content extracted to avoid duplication
+  // Shared sidebar inner content
   const SidebarContent = () => (
     <>
       <div className="p-5 space-y-6">
@@ -131,12 +133,12 @@ export default function AdminSidebarLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen bg-[#F5F0E8] flex antialiased">
 
-      {/* ── Desktop Sidebar ── */}
+      {/* ── Desktop sidebar ── */}
       <aside className="w-60 bg-[#FDF8F0] border-r border-[#DDD5C0] hidden md:flex flex-col justify-between fixed h-screen z-30">
         <SidebarContent />
       </aside>
 
-      {/* ── Mobile: backdrop overlay ── */}
+      {/* ── Mobile: backdrop ── */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-40 md:hidden"
@@ -150,19 +152,16 @@ export default function AdminSidebarLayout({ children }: { children: React.React
           transition-transform duration-300 ease-in-out
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* Close button inside drawer */}
-        <div className="absolute top-3 right-3">
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-[#F0EAD9] transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-[#F0EAD9] transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
         <SidebarContent />
       </aside>
 
-      {/* ── Mobile: top bar with hamburger ── */}
+      {/* ── Mobile: top bar ── */}
       <div className="fixed top-0 left-0 right-0 h-12 bg-[#FDF8F0] border-b border-[#DDD5C0] flex items-center px-4 gap-3 z-30 md:hidden">
         <button
           onClick={() => setMobileOpen(true)}
