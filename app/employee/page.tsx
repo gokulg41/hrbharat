@@ -18,6 +18,7 @@ import {
   Landmark,
   ChevronRight,
   User,
+  CheckSquare,
 } from 'lucide-react';
 
 export default function EmployeeTerminalDashboard() {
@@ -205,39 +206,50 @@ export default function EmployeeTerminalDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse" />
-          <p className="text-xs font-medium text-gray-400 tracking-widest uppercase">Loading</p>
-          <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse" style={{ animationDelay: '0.2s' }} />
-        </div>
+        <p className="text-sm text-[#9b9a97]">Loading...</p>
       </div>
     );
   }
 
-  const inputClass = "w-full text-sm px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-300";
-  const labelClass = "block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5";
-  const cardClass = "bg-white border border-gray-100 rounded-xl p-5 space-y-4";
-  const sectionTitleClass = "text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-2 pb-3 border-b border-gray-100";
+  // ── Notion-style design tokens ─────────────────────────────────────────
+  // Background: #ffffff  Surface: #f7f6f3  Border: #e9e9e7
+  // Text primary: #37352f  Text secondary: #787774  Text muted: #9b9a97
+  // Accent: #2eaadc (Notion blue)  Hover bg: #f1f1ef
+
+  const inputClass =
+    "w-full text-sm px-2 py-1.5 border border-[#e9e9e7] rounded-md bg-white text-[#37352f] placeholder:text-[#c1c0bb] focus:outline-none focus:ring-2 focus:ring-[#2eaadc]/30 focus:border-[#2eaadc] transition-all";
+
+  const labelClass =
+    "block text-xs font-medium text-[#787774] mb-1";
+
+  const sectionTitleClass =
+    "flex items-center gap-2 text-xs font-semibold text-[#9b9a97] uppercase tracking-widest mb-4";
+
+  const notionBtn =
+    "inline-flex items-center justify-center gap-1.5 text-sm font-medium text-white bg-[#37352f] hover:bg-[#2d2c28] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-md transition-colors cursor-pointer";
+
+  const notionBtnSmall =
+    "inline-flex items-center gap-1 text-xs font-medium text-white bg-[#37352f] hover:bg-[#2d2c28] disabled:opacity-40 px-3 py-1.5 rounded-md transition-colors cursor-pointer";
 
   return (
-    <div className="min-h-screen bg-gray-50/50" data-theme="light">
+    <div className="min-h-screen bg-white font-sans text-[#37352f]">
 
-      {/* TOP NAV */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-7 h-7 bg-gray-900 rounded-md flex items-center justify-center">
-              <span className="text-white text-[10px] font-bold tracking-tight">HB</span>
+      {/* ── SIDEBAR-STYLE TOP BAR ── */}
+      <header className="border-b border-[#e9e9e7] bg-white sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-8 h-12 flex items-center justify-between">
+          {/* Breadcrumb-style identity */}
+          <div className="flex items-center gap-1.5 text-sm text-[#787774]">
+            <div className="w-5 h-5 rounded bg-[#37352f] flex items-center justify-center shrink-0">
+              <span className="text-white text-[8px] font-bold">HB</span>
             </div>
-            <div className="h-4 w-px bg-gray-200" />
-            <div>
-              <p className="text-xs font-semibold text-gray-900">{employee?.full_name || 'Employee'}</p>
-              <p className="text-[10px] text-gray-400">{companyName} · {employee?.employee_code}</p>
-            </div>
+            <span className="text-[#c1c0bb]">/</span>
+            <span className="font-medium text-[#37352f]">{companyName || 'Workspace'}</span>
+            <span className="text-[#c1c0bb]">/</span>
+            <span className="text-[#787774]">{employee?.full_name || 'Employee'}</span>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-xs text-[#9b9a97] hover:text-[#37352f] hover:bg-[#f1f1ef] px-2 py-1 rounded transition-all cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign out
@@ -245,106 +257,121 @@ export default function EmployeeTerminalDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-5xl mx-auto px-8 py-10 space-y-10">
 
-        {/* STATUS MESSAGE */}
+        {/* ── PAGE TITLE ── */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-[#37352f]">
+            {employee?.full_name || 'Employee Portal'}
+          </h1>
+          <p className="mt-1 text-sm text-[#9b9a97]">
+            {employee?.designation || 'Team Member'} · {employee?.department || 'Operations'} · {employee?.employee_code}
+          </p>
+        </div>
+
+        {/* ── STATUS TOAST ── */}
         {statusMessage && (
-          <div className={`px-4 py-3 rounded-lg text-xs font-medium border ${
+          <div className={`text-sm px-4 py-2.5 rounded-md border ${
             statusMessage.type === 'success'
-              ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-              : 'bg-red-50 border-red-100 text-red-700'
+              ? 'bg-[#edfbf3] border-[#b7ebcf] text-[#0f7b43]'
+              : 'bg-[#fdecea] border-[#f5c0bb] text-[#d44c47]'
           }`}>
             {statusMessage.text}
           </div>
         )}
 
-        {/* STATS ROW */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={cardClass}>
-            <p className={labelClass}>Role</p>
-            <p className="text-sm font-semibold text-gray-900 truncate">{employee?.designation || 'Consultant'}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5 truncate">{employee?.department || 'Operations'}</p>
-          </div>
-          <div className={cardClass}>
-            <p className={labelClass}>Sick Leave</p>
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{employee?.sick_leave_balance ?? 12}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">days remaining</p>
-          </div>
-          <div className={cardClass}>
-            <p className={labelClass}>Casual Leave</p>
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{employee?.casual_leave_balance ?? 12}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">days remaining</p>
-          </div>
-          <div className={cardClass}>
-            <p className={labelClass}>Paid Leave</p>
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{employee?.paid_leave_balance ?? 18}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">days remaining</p>
-          </div>
+        {/* ── STAT CALLOUTS ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-[#e9e9e7] rounded-lg overflow-hidden border border-[#e9e9e7]">
+          {[
+            { label: 'Role', value: employee?.designation || 'Consultant', sub: employee?.department || 'Operations', big: false },
+            { label: 'Sick Leave', value: employee?.sick_leave_balance ?? 12, sub: 'days remaining', big: true },
+            { label: 'Casual Leave', value: employee?.casual_leave_balance ?? 12, sub: 'days remaining', big: true },
+            { label: 'Paid Leave', value: employee?.paid_leave_balance ?? 18, sub: 'days remaining', big: true },
+          ].map((stat, i) => (
+            <div key={i} className="bg-white px-5 py-4">
+              <p className="text-xs text-[#9b9a97] mb-1">{stat.label}</p>
+              <p className={`font-semibold text-[#37352f] truncate ${stat.big ? 'text-2xl' : 'text-sm'}`}>{stat.value}</p>
+              <p className="text-xs text-[#c1c0bb] mt-0.5 truncate">{stat.sub}</p>
+            </div>
+          ))}
         </div>
 
-        {/* TASKS + EOD */}
-        <div className="bg-white border border-gray-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Tasks */}
-          <div className="space-y-4">
-            <p className={sectionTitleClass}><ClipboardList className="w-3.5 h-3.5" /> Today's Tasks</p>
+        {/* ── DIVIDER ── */}
+        <hr className="border-[#e9e9e7]" />
+
+        {/* ── TASKS + EOD ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          {/* Today's Tasks */}
+          <div>
+            <div className={sectionTitleClass}>
+              <CheckSquare className="w-3.5 h-3.5" /> Today's Tasks
+            </div>
             {assignedTasks && assignedTasks.task_priorities?.length > 0 ? (
-              <ul className="space-y-2">
+              <ul className="space-y-1.5">
                 {assignedTasks.task_priorities.map((task: string, idx: number) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-gray-700 bg-gray-50 border border-gray-100 px-3 py-2.5 rounded-lg">
-                    <span className="w-4 h-4 rounded bg-gray-900 text-white flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">{idx + 1}</span>
+                  <li key={idx} className="flex items-start gap-3 text-sm text-[#37352f] hover:bg-[#f7f6f3] px-2 py-2 rounded-md transition-colors">
+                    <span className="mt-0.5 w-4 h-4 rounded-sm border-2 border-[#e9e9e7] bg-white shrink-0 flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-[#9b9a97]">{idx + 1}</span>
+                    </span>
                     {task}
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="py-8 text-center border border-dashed border-gray-200 rounded-lg">
-                <p className="text-[11px] text-gray-400">No tasks assigned for today</p>
+              <div className="py-8 text-center rounded-md border border-dashed border-[#e9e9e7]">
+                <p className="text-sm text-[#c1c0bb]">No tasks assigned for today</p>
               </div>
             )}
           </div>
 
-          {/* EOD */}
-          <div className="space-y-4">
-            <p className={sectionTitleClass}><FileText className="w-3.5 h-3.5" /> End of Day Report</p>
+          {/* EOD Report */}
+          <div>
+            <div className={sectionTitleClass}>
+              <FileText className="w-3.5 h-3.5" /> End of Day Report
+            </div>
             <form onSubmit={handleFilingEod} className="space-y-3">
               <textarea
                 required
-                rows={4}
+                rows={5}
                 value={eodText}
                 onChange={e => setEodText(e.target.value)}
-                placeholder="Summarize what you completed today..."
-                className="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-gray-400 transition-colors resize-none placeholder:text-gray-300"
+                placeholder="What did you complete today? Add any blockers or notes..."
+                className="w-full text-sm px-3 py-2.5 border border-[#e9e9e7] rounded-md bg-white text-[#37352f] placeholder:text-[#c1c0bb] focus:outline-none focus:ring-2 focus:ring-[#2eaadc]/30 focus:border-[#2eaadc] transition-all resize-none"
               />
-              <button
-                type="submit"
-                disabled={submittingEod}
-                className="ml-auto flex items-center gap-1.5 text-[11px] font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 px-4 py-2 rounded-lg transition-colors cursor-pointer"
-              >
-                {submittingEod ? 'Submitting...' : 'Submit Report'}
-                <ChevronRight className="w-3 h-3" />
-              </button>
+              <div className="flex justify-end">
+                <button type="submit" disabled={submittingEod} className={notionBtnSmall}>
+                  {submittingEod ? 'Submitting...' : 'Submit Report'}
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
             </form>
           </div>
         </div>
 
-        {/* PAY SLIPS */}
+        <hr className="border-[#e9e9e7]" />
+
+        {/* ── PAY SLIPS ── */}
         {myPaySlips.length > 0 && (
-          <div className="bg-white border border-gray-100 rounded-xl p-6 space-y-4">
-            <p className={sectionTitleClass}><Calculator className="w-3.5 h-3.5" /> Salary Slips</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className={sectionTitleClass}>
+              <Calculator className="w-3.5 h-3.5" /> Salary Slips
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {myPaySlips.map((slip) => (
-                <div key={slip.id} className="border border-gray-100 rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-gray-900">{slip.month_year}</span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                <div key={slip.id} className="border border-[#e9e9e7] rounded-md px-4 py-4 hover:bg-[#f7f6f3] transition-colors">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-sm font-semibold text-[#37352f]">{slip.month_year}</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#0f7b43] bg-[#edfbf3] border border-[#b7ebcf] px-2 py-0.5 rounded-full">
                       <ShieldCheck className="w-3 h-3" /> Confirmed
                     </span>
                   </div>
-                  <div className="space-y-1.5 pt-3 border-t border-gray-100 text-xs">
-                    <div className="flex justify-between text-gray-500"><span>Gross Salary</span><span className="font-medium text-gray-900">₹{Number(slip.gross_salary).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between text-gray-400"><span>EPF (12%)</span><span>−₹{Number(slip.epf_deduction).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between text-gray-400"><span>ESIC (0.75%)</span><span>−₹{Number(slip.esic_deduction).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between pt-2 border-t border-gray-100 text-sm font-semibold text-gray-900"><span>Net Take-Home</span><span>₹{Number(slip.net_take_home).toLocaleString('en-IN')}</span></div>
+                  <div className="space-y-1 text-xs border-t border-[#e9e9e7] pt-3">
+                    <div className="flex justify-between"><span className="text-[#787774]">Gross Salary</span><span className="font-medium text-[#37352f]">₹{Number(slip.gross_salary).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-[#9b9a97]">EPF (12%)</span><span className="text-[#9b9a97]">−₹{Number(slip.epf_deduction).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-[#9b9a97]">ESIC (0.75%)</span><span className="text-[#9b9a97]">−₹{Number(slip.esic_deduction).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between pt-2 border-t border-[#e9e9e7] text-sm font-semibold text-[#37352f]">
+                      <span>Net Take-Home</span><span>₹{Number(slip.net_take_home).toLocaleString('en-IN')}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -352,13 +379,17 @@ export default function EmployeeTerminalDashboard() {
           </div>
         )}
 
-        {/* FORMS + FEED */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-5 space-y-4">
+        <hr className="border-[#e9e9e7]" />
+
+        {/* ── FORMS + FEED GRID ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+          <div className="lg:col-span-5 space-y-8">
 
             {/* LEAVE REQUEST */}
-            <div className={cardClass}>
-              <p className={sectionTitleClass}><Calendar className="w-3.5 h-3.5" /> Leave Request</p>
+            <div>
+              <div className={sectionTitleClass}>
+                <Calendar className="w-3.5 h-3.5" /> Leave Request
+              </div>
               <form onSubmit={handleFilingLeave} className="space-y-3">
                 <div>
                   <label className={labelClass}>Leave Type</label>
@@ -382,15 +413,17 @@ export default function EmployeeTerminalDashboard() {
                   <label className={labelClass}>Reason</label>
                   <input type="text" required value={leaveReason} onChange={e => setLeaveReason(e.target.value)} placeholder="Brief reason" className={inputClass} />
                 </div>
-                <button type="submit" disabled={submittingLeave} className="w-full text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 py-2.5 rounded-lg transition-colors cursor-pointer">
+                <button type="submit" disabled={submittingLeave} className={`w-full ${notionBtn}`}>
                   {submittingLeave ? 'Submitting...' : 'Submit Request'}
                 </button>
               </form>
             </div>
 
             {/* ADVANCE SALARY */}
-            <div className={cardClass}>
-              <p className={sectionTitleClass}><Banknote className="w-3.5 h-3.5" /> Advance Salary</p>
+            <div>
+              <div className={sectionTitleClass}>
+                <Banknote className="w-3.5 h-3.5" /> Advance Salary
+              </div>
               <form onSubmit={handleFilingAdvance} className="space-y-3">
                 <div>
                   <label className={labelClass}>Amount (INR)</label>
@@ -400,15 +433,17 @@ export default function EmployeeTerminalDashboard() {
                   <label className={labelClass}>Reason</label>
                   <input type="text" value={advanceReason} onChange={e => setAdvanceReason(e.target.value)} placeholder="Optional justification" className={inputClass} />
                 </div>
-                <button type="submit" disabled={submittingAdvance} className="w-full text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 py-2.5 rounded-lg transition-colors cursor-pointer">
+                <button type="submit" disabled={submittingAdvance} className={`w-full ${notionBtn}`}>
                   {submittingAdvance ? 'Submitting...' : 'Submit Claim'}
                 </button>
               </form>
             </div>
 
             {/* REGULARIZATION */}
-            <div className={cardClass}>
-              <p className={sectionTitleClass}><FolderLock className="w-3.5 h-3.5" /> Attendance Correction</p>
+            <div>
+              <div className={sectionTitleClass}>
+                <FolderLock className="w-3.5 h-3.5" /> Attendance Correction
+              </div>
               <form onSubmit={handleFilingRegularization} className="space-y-3">
                 <div>
                   <label className={labelClass}>Date</label>
@@ -428,28 +463,30 @@ export default function EmployeeTerminalDashboard() {
                   <label className={labelClass}>Reason</label>
                   <input type="text" required value={regReason} onChange={e => setRegReason(e.target.value)} placeholder="Justification" className={inputClass} />
                 </div>
-                <button type="submit" disabled={submittingReg} className="w-full text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 py-2.5 rounded-lg transition-colors cursor-pointer">
+                <button type="submit" disabled={submittingReg} className={`w-full ${notionBtn}`}>
                   {submittingReg ? 'Submitting...' : 'Submit Correction'}
                 </button>
               </form>
             </div>
 
             {/* ACCOUNT SETTINGS */}
-            <div className={cardClass}>
-              <p className={sectionTitleClass}><SlidersHorizontal className="w-3.5 h-3.5" /> Account & Banking</p>
+            <div>
+              <div className={sectionTitleClass}>
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Account & Banking
+              </div>
               <form onSubmit={handleUpdateAccountSettings} className="space-y-3">
                 <div>
                   <label className={labelClass}>Mobile Number</label>
                   <input type="tel" value={accountPhone} onChange={e => setAccountPhone(e.target.value)} placeholder="+91 98000 00000" className={inputClass} />
                 </div>
-                <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                <div className="p-3 bg-[#f7f6f3] rounded-md border border-[#e9e9e7] space-y-2">
+                  <p className="text-[10px] font-semibold text-[#9b9a97] uppercase tracking-wider flex items-center gap-1.5">
                     <Landmark className="w-3 h-3" /> Bank Details
                   </p>
                   <input type="text" value={accountBankNum} onChange={e => setAccountBankNum(e.target.value)} placeholder="Account number" className={inputClass} />
                   <input type="text" value={accountIfscCode} onChange={e => setAccountIfscCode(e.target.value)} placeholder="IFSC code" className={inputClass} />
                 </div>
-                <button type="submit" disabled={savingAccount} className="w-full text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 py-2.5 rounded-lg transition-colors cursor-pointer">
+                <button type="submit" disabled={savingAccount} className={`w-full ${notionBtn}`}>
                   {savingAccount ? 'Saving...' : 'Save Settings'}
                 </button>
               </form>
