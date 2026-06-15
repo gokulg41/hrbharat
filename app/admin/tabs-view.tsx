@@ -94,6 +94,402 @@ interface RegularisationRequest {
   profiles: { full_name: string; employee_id: string } | null;
 }
 
+// ── AdminTabsView props (used by app/admin/page.tsx) ──────────────────────────
+
+interface AdminTabsViewProps {
+  activeTab: "roster" | "leaves" | "advances" | "tasks" | "compliance" | "payroll" | "logs";
+  employees: any[];
+  leaveRequests: any[];
+  advanceRequests: any[];
+  dailyTaskLogs: any[];
+  regularizations: any[];
+  systemLogs: any[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  startEditing: (emp: any) => void;
+  handleUpdateWorkflowStatus: (table: string, id: string, status: string) => void;
+  refreshOperationalData: () => Promise<void>;
+}
+
+// ── AdminTabsView — default export consumed by app/admin/page.tsx ─────────────
+
+export default function AdminTabsView({
+  activeTab,
+  employees,
+  leaveRequests,
+  advanceRequests,
+  dailyTaskLogs,
+  regularizations,
+  systemLogs,
+  searchQuery,
+  setSearchQuery,
+  startEditing,
+  handleUpdateWorkflowStatus,
+  refreshOperationalData,
+}: AdminTabsViewProps) {
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  function showToast(msg: string, type: "success" | "error" = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function handleLeaveStatus(id: string, status: "approved" | "rejected") {
+    await handleUpdateWorkflowStatus("leave_requests", id, status);
+    showToast(`Leave ${status}`);
+    await refreshOperationalData();
+  }
+
+  async function handleAdvanceStatus(id: string, status: "approved" | "rejected") {
+    await handleUpdateWorkflowStatus("advance_salary_requests", id, status);
+    showToast(`Advance ${status}`);
+    await refreshOperationalData();
+  }
+
+  async function handleRegularizationStatus(id: string, status: "approved" | "rejected") {
+    await handleUpdateWorkflowStatus("attendance_regularizations", id, status);
+    showToast(`Correction ${status}`);
+    await refreshOperationalData();
+  }
+
+  // ── Roster tab ───────────────────────────────────────────────────────────────
+  if (activeTab === "roster") {
+    const filtered = employees.filter((e) =>
+      `${e.full_name} ${e.employee_code} ${e.department} ${e.designation}`
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
+    );
+    return (
+      <div className="space-y-4 p-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search employees…"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-md focus:outline-none focus:ring-1 focus:ring-stone-400"
+          />
+        </div>
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Department</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Salary</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Joined</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No employees found</td></tr>
+              ) : filtered.map((emp) => (
+                <tr key={emp.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-stone-900">{emp.full_name}</p>
+                    <p className="text-stone-400">{emp.employee_code}</p>
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">
+                    <p>{emp.department || "—"}</p>
+                    <p className="text-stone-400">{emp.designation || "—"}</p>
+                  </td>
+                  <td className="px-4 py-3 text-stone-700 font-medium">
+                    ₹{Number(emp.monthly_salary || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500">
+                    {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString("en-IN") : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => startEditing(emp)}
+                      className="p-1 rounded hover:bg-stone-100 text-stone-400 hover:text-stone-700"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {toast && <Toast msg={toast.msg} type={toast.type} />}
+      </div>
+    );
+  }
+
+  // ── Leaves tab ───────────────────────────────────────────────────────────────
+  if (activeTab === "leaves") {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Type</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Duration</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Reason</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {leaveRequests.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No pending leave requests</td></tr>
+              ) : leaveRequests.map((r) => (
+                <tr key={r.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-stone-900">{r.employee_name}</p>
+                    <p className="text-stone-400">{r.employee_code}</p>
+                  </td>
+                  <td className="px-4 py-3 text-stone-600 capitalize">{r.leave_type}</td>
+                  <td className="px-4 py-3 text-stone-500">
+                    {r.start_date} → {r.end_date}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500 max-w-[200px] truncate">{r.reason}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleLeaveStatus(r.id, "approved")}
+                        className="p-1 rounded hover:bg-emerald-50 text-stone-400 hover:text-emerald-600">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleLeaveStatus(r.id, "rejected")}
+                        className="p-1 rounded hover:bg-rose-50 text-stone-400 hover:text-rose-500">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {toast && <Toast msg={toast.msg} type={toast.type} />}
+      </div>
+    );
+  }
+
+  // ── Advances tab ─────────────────────────────────────────────────────────────
+  if (activeTab === "advances") {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Amount</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Reason</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Requested</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {advanceRequests.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No pending advance requests</td></tr>
+              ) : advanceRequests.map((r) => (
+                <tr key={r.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-stone-900">{r.employee_name}</p>
+                    <p className="text-stone-400">{r.employee_code}</p>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-stone-900">
+                    ₹{Number(r.requested_amount || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500 max-w-[180px] truncate">{r.reason}</td>
+                  <td className="px-4 py-3 text-stone-400">
+                    {new Date(r.created_at).toLocaleDateString("en-IN")}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleAdvanceStatus(r.id, "approved")}
+                        className="p-1 rounded hover:bg-emerald-50 text-stone-400 hover:text-emerald-600">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleAdvanceStatus(r.id, "rejected")}
+                        className="p-1 rounded hover:bg-rose-50 text-stone-400 hover:text-rose-500">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {toast && <Toast msg={toast.msg} type={toast.type} />}
+      </div>
+    );
+  }
+
+  // ── Tasks tab ────────────────────────────────────────────────────────────────
+  if (activeTab === "tasks") {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Tasks</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Submitted</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {dailyTaskLogs.length === 0 ? (
+                <tr><td colSpan={3} className="text-center py-10 text-stone-400">No task logs yet</td></tr>
+              ) : dailyTaskLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-stone-900">{log.employee_name}</p>
+                    <p className="text-stone-400">{log.employee_code}</p>
+                  </td>
+                  <td className="px-4 py-3 text-stone-600 max-w-[300px]">
+                    {log.task_priorities?.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {log.task_priorities.map((t: string, i: number) => (
+                          <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">{t}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-stone-400 italic">No tasks listed</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-stone-400">
+                    {new Date(log.submitted_at || log.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Compliance (regularizations) tab ─────────────────────────────────────────
+  if (activeTab === "compliance") {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Date</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Requested Times</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Reason</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {regularizations.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No pending corrections</td></tr>
+              ) : regularizations.map((r) => (
+                <tr key={r.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-stone-900">{r.employee_name}</p>
+                    <p className="text-stone-400">{r.employee_code}</p>
+                  </td>
+                  <td className="px-4 py-3 text-stone-500">
+                    {r.date ? new Date(r.date).toLocaleDateString("en-IN") : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500">
+                    {r.requested_check_in || "—"} → {r.requested_check_out || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500 max-w-[180px] truncate">{r.reason}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleRegularizationStatus(r.id, "approved")}
+                        className="p-1 rounded hover:bg-emerald-50 text-stone-400 hover:text-emerald-600">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleRegularizationStatus(r.id, "rejected")}
+                        className="p-1 rounded hover:bg-rose-50 text-stone-400 hover:text-rose-500">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {toast && <Toast msg={toast.msg} type={toast.type} />}
+      </div>
+    );
+  }
+
+  // ── Payroll tab ──────────────────────────────────────────────────────────────
+  if (activeTab === "payroll") {
+    const total = employees.reduce((s, e) => s + (Number(e.monthly_salary) || 0), 0);
+    return (
+      <div className="space-y-4 p-4">
+        <div className="bg-stone-50 border border-stone-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-stone-500 font-medium">Total Monthly Liability</span>
+          <span className="text-sm font-bold text-stone-900">₹{total.toLocaleString("en-IN")}</span>
+        </div>
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Department</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Gross Salary</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Bank Account</th>
+                <th className="text-left px-4 py-2.5 font-medium text-stone-400">IFSC</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {employees.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No employees on roster</td></tr>
+              ) : employees.map((emp) => (
+                <tr key={emp.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-stone-900">{emp.full_name}</p>
+                    <p className="text-stone-400">{emp.employee_code}</p>
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">{emp.department || "—"}</td>
+                  <td className="px-4 py-3 font-medium text-stone-900">
+                    ₹{Number(emp.monthly_salary || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500 font-mono">{emp.bank_account_number || "—"}</td>
+                  <td className="px-4 py-3 text-stone-500 font-mono">{emp.ifsc_code || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Logs tab ─────────────────────────────────────────────────────────────────
+  if (activeTab === "logs") {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="border border-stone-200 rounded-lg overflow-hidden divide-y divide-stone-100 max-h-[500px] overflow-y-auto">
+          {systemLogs.length === 0 ? (
+            <p className="text-center py-10 text-xs text-stone-400">No audit events logged yet</p>
+          ) : systemLogs.map((log) => (
+            <div key={log.id} className="px-4 py-3 flex justify-between gap-3 hover:bg-stone-50">
+              <p className="text-xs text-stone-700">
+                <span className="font-semibold text-stone-900">[{log.event_type || "SYSTEM"}]</span>{" "}
+                {log.description}
+              </p>
+              <span className="text-[11px] text-stone-400 shrink-0 tabular-nums">
+                {new Date(log.created_at).toLocaleString("en-IN")}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 // ── Tab config ────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -107,9 +503,9 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── WorkforceDeskTabsView — named export for the workforce desk page ───────────
 
-export default function WorkforceDeskTabsView() {
+export function WorkforceDeskTabsView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabParam = searchParams.get("tab") as TabId | null;
@@ -117,7 +513,6 @@ export default function WorkforceDeskTabsView() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
 
-  // Pull plan features so we can lock tabs in the tab bar
   const { features, loading: planLoading } = usePlan();
 
   useEffect(() => {
@@ -136,7 +531,6 @@ export default function WorkforceDeskTabsView() {
     router.replace(`?tab=${id}`, { scroll: false });
   }
 
-  // If user is on a locked tab (e.g. came via direct URL), redirect to attendance
   useEffect(() => {
     if (planLoading) return;
     const tab = TABS.find((t) => t.id === activeTab);
@@ -153,13 +547,11 @@ export default function WorkforceDeskTabsView() {
 
   return (
     <div className="space-y-5 p-6">
-      {/* Page header */}
       <div>
         <h1 className="text-xl font-semibold text-[#37352f]">Workforce Desk</h1>
         <p className="text-sm text-[#9b9a97] mt-0.5">Manage attendance, leaves, advances, tasks & reports</p>
       </div>
 
-      {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-[#e9e9e7] overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon, feature }) => {
           const isLocked = !!feature && !features[feature as keyof typeof features];
@@ -186,29 +578,24 @@ export default function WorkforceDeskTabsView() {
         })}
       </div>
 
-      {/* Tab content */}
       <div>
         {activeTab === "attendance" && companyId && <AttendanceTab companyId={companyId} />}
         {activeTab === "leaves" && companyId && <LeavesTab companyId={companyId} />}
-
         {activeTab === "regularisation" && (
           <PlanGate feature="attendanceRegularisation">
             {companyId && <RegularisationTab companyId={companyId} />}
           </PlanGate>
         )}
-
         {activeTab === "advances" && (
           <PlanGate feature="advanceSalary">
             {companyId && <AdvancesTab companyId={companyId} />}
           </PlanGate>
         )}
-
         {activeTab === "tasks" && (
           <PlanGate feature="dailyTasks">
             {companyId && <TasksTab companyId={companyId} />}
           </PlanGate>
         )}
-
         {activeTab === "eod" && (
           <PlanGate feature="eodReports">
             {companyId && <EODTab companyId={companyId} />}
@@ -263,7 +650,6 @@ function AttendanceTab({ companyId }: { companyId: string }) {
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </button>
       </div>
-
       <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
@@ -288,9 +674,7 @@ function AttendanceTab({ companyId }: { companyId: string }) {
                 </td>
                 <td className="px-4 py-3 text-[#787774]">{r.check_in || "—"}</td>
                 <td className="px-4 py-3 text-[#787774]">{r.check_out || "—"}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={r.status} />
-                </td>
+                <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                 <td className="px-4 py-3 text-[#9b9a97]">
                   {r.location_lat ? `${r.location_lat.toFixed(4)}, ${r.location_lng?.toFixed(4)}` : "—"}
                 </td>
@@ -358,7 +742,6 @@ function LeavesTab({ companyId }: { companyId: string }) {
             }`}>{s}</button>
         ))}
       </div>
-
       <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
@@ -407,14 +790,13 @@ function LeavesTab({ companyId }: { companyId: string }) {
           </tbody>
         </table>
       </div>
-
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB: REGULARISATION — Growth+
+// TAB: REGULARISATION
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RegularisationTab({ companyId }: { companyId: string }) {
@@ -458,7 +840,6 @@ function RegularisationTab({ companyId }: { companyId: string }) {
             }`}>{s}</button>
         ))}
       </div>
-
       <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
@@ -507,14 +888,13 @@ function RegularisationTab({ companyId }: { companyId: string }) {
           </tbody>
         </table>
       </div>
-
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB: ADVANCES — Growth+
+// TAB: ADVANCES
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AdvancesTab({ companyId }: { companyId: string }) {
@@ -558,7 +938,6 @@ function AdvancesTab({ companyId }: { companyId: string }) {
             }`}>{s}</button>
         ))}
       </div>
-
       <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
@@ -605,14 +984,13 @@ function AdvancesTab({ companyId }: { companyId: string }) {
           </tbody>
         </table>
       </div>
-
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB: TASKS — Growth+
+// TAB: TASKS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TasksTab({ companyId }: { companyId: string }) {
@@ -669,7 +1047,6 @@ function TasksTab({ companyId }: { companyId: string }) {
           <Plus className="w-3.5 h-3.5" /> Assign Task
         </button>
       </div>
-
       <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
@@ -697,9 +1074,7 @@ function TasksTab({ companyId }: { companyId: string }) {
                   <p className="text-[#787774]">{t.profiles?.full_name}</p>
                   <p className="text-[#9b9a97]">{t.profiles?.employee_id}</p>
                 </td>
-                <td className="px-4 py-3">
-                  <PriorityBadge priority={t.priority} />
-                </td>
+                <td className="px-4 py-3"><PriorityBadge priority={t.priority} /></td>
                 <td className="px-4 py-3 text-[#787774]">
                   {t.due_date ? new Date(t.due_date).toLocaleDateString("en-IN") : "—"}
                 </td>
@@ -715,7 +1090,6 @@ function TasksTab({ companyId }: { companyId: string }) {
           </tbody>
         </table>
       </div>
-
       {showAddModal && (
         <AddTaskModal
           companyId={companyId}
@@ -724,14 +1098,13 @@ function TasksTab({ companyId }: { companyId: string }) {
           onSaved={() => { load(); showToast("Task assigned"); setShowAddModal(false); }}
         />
       )}
-
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB: EOD REPORTS — Growth+
+// TAB: EOD REPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EODTab({ companyId }: { companyId: string }) {
@@ -763,7 +1136,6 @@ function EODTab({ companyId }: { companyId: string }) {
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </button>
       </div>
-
       <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
@@ -800,8 +1172,6 @@ function EODTab({ companyId }: { companyId: string }) {
           </tbody>
         </table>
       </div>
-
-      {/* Report detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg border border-[#e9e9e7] w-full max-w-md p-5 space-y-4">
