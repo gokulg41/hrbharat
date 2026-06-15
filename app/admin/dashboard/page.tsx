@@ -112,7 +112,7 @@ export default function AdminClientDashboard() {
 
       const { data: prof } = await supabase
         .from('profiles')
-        .select('company_id, full_name, role')
+        .select('id,company_id, full_name, role')
         .eq('id', user.id)
         .single();
 
