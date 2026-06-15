@@ -1,613 +1,963 @@
 "use client";
 
-import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { commitMonthlyPayrollAction } from '@/lib/actions';
-import { calculateIndianPayrollBreakdown } from '@/lib/payroll-math';
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import {
-  Search, Edit2, Mail, Phone, Key, Banknote,
-  Download, Terminal, CheckCircle2, XCircle, Plus, X
-} from 'lucide-react';
+  Clock,
+  Calendar,
+  ClipboardList,
+  FileText,
+  IndianRupee,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  Download,
+  MoreHorizontal,
+  RefreshCw,
+  Plus,
+  Edit,
+  Trash2,
+  User,
+  Building2,
+  Loader2,
+  Lock,
+} from "lucide-react";
+import PlanGate from "@/components/PlanGate";
+import { usePlan } from "@/lib/usePlan";
 
-/* ─────────────────────────────────────────────
-   Design helpers (match page.tsx)
-───────────────────────────────────────────── */
-function Avatar({ name }: { name: string }) {
-  const initials = (name || '?')
-    .split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-  const hues = [210, 160, 340, 30, 280, 195];
-  const hue = hues[(name || '').charCodeAt(0) % hues.length];
-  return (
-    <span
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-semibold shrink-0"
-      style={{ background: `hsl(${hue} 55% 88%)`, color: `hsl(${hue} 50% 35%)` }}
-    >
-      {initials}
-    </span>
-  );
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface AttendanceRecord {
+  id: string;
+  employee_id: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  status: "present" | "absent" | "late" | "half_day";
+  selfie_url: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  notes: string | null;
+  profiles: { full_name: string; employee_id: string } | null;
 }
 
-function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
-  const map: Record<string, string> = {
-    gray:    'bg-stone-100 text-stone-500 border-stone-200',
-    teal:    'bg-teal-50 text-teal-700 border-teal-100',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    amber:   'bg-amber-50 text-amber-600 border-amber-100',
-    rose:    'bg-rose-50 text-rose-600 border-rose-100',
-  };
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${map[color]}`}>
-      {children}
-    </span>
-  );
+interface LeaveRequest {
+  id: string;
+  employee_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  profiles: { full_name: string; employee_id: string } | null;
 }
 
-function EmptyState({ text }: { text: string }) {
+interface AdvanceRequest {
+  id: string;
+  employee_id: string;
+  amount: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  profiles: { full_name: string; employee_id: string } | null;
+}
+
+interface Task {
+  id: string;
+  employee_id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  status: "pending" | "in_progress" | "completed";
+  priority: "low" | "medium" | "high";
+  created_at: string;
+  profiles: { full_name: string; employee_id: string } | null;
+}
+
+interface RegularisationRequest {
+  id: string;
+  employee_id: string;
+  date: string;
+  requested_check_in: string | null;
+  requested_check_out: string | null;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  profiles: { full_name: string; employee_id: string } | null;
+}
+
+// ── Tab config ────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: "attendance", label: "Attendance", icon: Clock, feature: null },
+  { id: "leaves", label: "Leaves", icon: Calendar, feature: null },
+  { id: "regularisation", label: "Regularisation", icon: RefreshCw, feature: "attendanceRegularisation" },
+  { id: "advances", label: "Advances", icon: IndianRupee, feature: "advanceSalary" },
+  { id: "tasks", label: "Tasks", icon: ClipboardList, feature: "dailyTasks" },
+  { id: "eod", label: "EOD Reports", icon: FileText, feature: "eodReports" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+export default function WorkforceDeskTabsView() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tabParam = searchParams.get("tab") as TabId | null;
+  const [activeTab, setActiveTab] = useState<TabId>(tabParam || "attendance");
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [loadingCompany, setLoadingCompany] = useState(true);
+
+  // Pull plan features so we can lock tabs in the tab bar
+  const { features, loading: planLoading } = usePlan();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("profiles").select("company_id").eq("id", user.id).single()
+        .then(({ data }) => {
+          if (data?.company_id) setCompanyId(data.company_id);
+          setLoadingCompany(false);
+        });
+    });
+  }, []);
+
+  function switchTab(id: TabId) {
+    setActiveTab(id);
+    router.replace(`?tab=${id}`, { scroll: false });
+  }
+
+  // If user is on a locked tab (e.g. came via direct URL), redirect to attendance
+  useEffect(() => {
+    if (planLoading) return;
+    const tab = TABS.find((t) => t.id === activeTab);
+    if (tab?.feature && !features[tab.feature as keyof typeof features]) {
+      switchTab("attendance");
+    }
+  }, [planLoading, features, activeTab]);
+
+  if (loadingCompany || planLoading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-5 h-5 border-2 border-[#37352f] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
-    <div className="py-16 text-center">
-      <p className="text-sm text-stone-400 font-sans italic">{text}</p>
+    <div className="space-y-5 p-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-xl font-semibold text-[#37352f]">Workforce Desk</h1>
+        <p className="text-sm text-[#9b9a97] mt-0.5">Manage attendance, leaves, advances, tasks & reports</p>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 border-b border-[#e9e9e7] overflow-x-auto">
+        {TABS.map(({ id, label, icon: Icon, feature }) => {
+          const isLocked = !!feature && !features[feature as keyof typeof features];
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => !isLocked && switchTab(id)}
+              disabled={isLocked}
+              title={isLocked ? `Upgrade to unlock ${label}` : undefined}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                isLocked
+                  ? "border-transparent text-[#c1c0bb] cursor-not-allowed"
+                  : isActive
+                  ? "border-[#37352f] text-[#37352f]"
+                  : "border-transparent text-[#9b9a97] hover:text-[#787774]"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+              {isLocked && <Lock className="w-3 h-3 ml-0.5 text-[#c1c0bb]" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      <div>
+        {activeTab === "attendance" && companyId && <AttendanceTab companyId={companyId} />}
+        {activeTab === "leaves" && companyId && <LeavesTab companyId={companyId} />}
+
+        {activeTab === "regularisation" && (
+          <PlanGate feature="attendanceRegularisation">
+            {companyId && <RegularisationTab companyId={companyId} />}
+          </PlanGate>
+        )}
+
+        {activeTab === "advances" && (
+          <PlanGate feature="advanceSalary">
+            {companyId && <AdvancesTab companyId={companyId} />}
+          </PlanGate>
+        )}
+
+        {activeTab === "tasks" && (
+          <PlanGate feature="dailyTasks">
+            {companyId && <TasksTab companyId={companyId} />}
+          </PlanGate>
+        )}
+
+        {activeTab === "eod" && (
+          <PlanGate feature="eodReports">
+            {companyId && <EODTab companyId={companyId} />}
+          </PlanGate>
+        )}
+      </div>
     </div>
   );
 }
 
-function Input({ className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`w-full text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300 ${className}`}
-    />
-  );
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: ATTENDANCE
+// ─────────────────────────────────────────────────────────────────────────────
 
-function ApproveRejectButtons({ onApprove, onReject }: { onApprove: () => void; onReject: () => void }) {
-  return (
-    <div className="flex gap-1 shrink-0">
-      <button
-        onClick={onApprove}
-        className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-100 transition-colors cursor-pointer"
-        title="Approve"
-      >
-        <CheckCircle2 className="w-4 h-4" />
-      </button>
-      <button
-        onClick={onReject}
-        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors cursor-pointer"
-        title="Reject"
-      >
-        <XCircle className="w-4 h-4" />
-      </button>
-    </div>
-  );
-}
+function AttendanceTab({ companyId }: { companyId: string }) {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [search, setSearch] = useState("");
 
-/* ─────────────────────────────────────────────
-   Props
-───────────────────────────────────────────── */
-interface TabsViewProps {
-  activeTab: 'roster' | 'leaves' | 'advances' | 'tasks' | 'compliance' | 'payroll' | 'logs';
-  employees: any[];
-  leaveRequests: any[];
-  advanceRequests: any[];
-  dailyTaskLogs: any[];
-  regularizations: any[];
-  systemLogs: any[];
-  searchQuery: string;
-  setSearchQuery: (val: string) => void;
-  startEditing: (emp: any) => void;
-  handleUpdateWorkflowStatus: (table: any, id: string, status: string) => Promise<void>;
-  refreshOperationalData: () => Promise<void>;
-}
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("attendance")
+      .select("*, profiles(full_name, employee_id)")
+      .eq("company_id", companyId)
+      .eq("date", date)
+      .order("check_in", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  }, [companyId, date]);
 
-/* ─────────────────────────────────────────────
-   Component
-───────────────────────────────────────────── */
-export default function AdminTabsView({
-  activeTab,
-  employees,
-  leaveRequests,
-  advanceRequests,
-  dailyTaskLogs,
-  regularizations,
-  systemLogs,
-  searchQuery,
-  setSearchQuery,
-  startEditing,
-  handleUpdateWorkflowStatus,
-  refreshOperationalData,
-}: TabsViewProps) {
+  useEffect(() => { load(); }, [load]);
 
-  const [targetEmpCode, setTargetEmpCode] = useState('');
-  const [newTaskInput, setNewTaskInput] = useState('');
-  const [taskArray, setTaskArray] = useState<string[]>([]);
-  const [pushingTasks, setPushingTasks] = useState(false);
-
-  const [targetMonth, setTargetMonth] = useState('May 2026');
-  const [processingPayroll, setProcessingPayroll] = useState(false);
-  const [payrollStatus, setPayrollStatus] = useState<string | null>(null);
-
-  const [selectedLogType, setSelectedLogType] = useState('ALL');
-
-  const addToTaskArray = () => {
-    if (!newTaskInput.trim()) return;
-    setTaskArray([...taskArray, newTaskInput.trim()]);
-    setNewTaskInput('');
-  };
-
-  const handleAssignTasks = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (taskArray.length === 0 || !targetEmpCode.trim()) return;
-    setPushingTasks(true);
-    const matchEmp = employees.find(
-      (emp) => emp.employee_code.toLowerCase().trim() === targetEmpCode.toLowerCase().trim()
-    );
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
-      const { error } = await supabase.from('daily_tasks').insert({
-        company_id: profile?.company_id,
-        employee_code: targetEmpCode.toUpperCase().trim(),
-        employee_name: matchEmp ? matchEmp.full_name : 'Unknown',
-        task_priorities: taskArray,
-      });
-      if (error) throw error;
-      setTaskArray([]); setTargetEmpCode('');
-      await refreshOperationalData();
-    } catch (err: any) { alert(`Error: ${err.message}`); }
-    finally { setPushingTasks(false); }
-  };
-
-  const handleProcessPayrollLedger = async () => {
-    if (employees.length === 0) return;
-    setProcessingPayroll(true);
-    setPayrollStatus(null);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
-      const recordsToCommit = employees.map((emp) => {
-        const math = calculateIndianPayrollBreakdown(emp.monthly_salary);
-        return {
-          company_id: profile?.company_id,
-          employee_code: emp.employee_code,
-          employee_name: emp.full_name,
-          designation: emp.designation,
-          department: emp.department,
-          month_year: targetMonth,
-          gross_salary: math.gross,
-          epf_deduction: math.epf,
-          esic_deduction: math.esic,
-          prof_tax_deduction: math.profTax,
-          net_take_home: math.netHome,
-          status: 'paid',
-        };
-      });
-      const res = await commitMonthlyPayrollAction(recordsToCommit);
-      if (res.success) setPayrollStatus(`Payroll for ${targetMonth} processed successfully.`);
-      else throw new Error(res.error);
-    } catch (err: any) { setPayrollStatus(`Failed: ${err.message}`); }
-    finally { setProcessingPayroll(false); }
-  };
-
-  const handleExportAuditLogsToCSV = (filteredLogs: any[]) => {
-    if (filteredLogs.length === 0) return;
-    const headers = ['Timestamp', 'Event Type', 'Actor', 'Description'];
-    const rows = filteredLogs.map((log) => [
-      `"${new Date(log.created_at).toLocaleString()}"`,
-      `"${log.event_type}"`,
-      `"${log.actor_name}"`,
-      `"${log.description.replace(/"/g, '""')}"`,
-    ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `Audit_Trail_${targetMonth.replace(' ', '_')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const filteredEmployees = employees.filter(
-    (emp) =>
-      emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.employee_code.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = records.filter(r =>
+    r.profiles?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.profiles?.employee_id?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredSystemLogs = systemLogs.filter((log) => {
-    const matchesSearch =
-      log.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.event_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.actor_name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedLogType === 'ALL' || log.event_type === selectedLogType;
-    return matchesSearch && matchesCategory;
-  });
-
-  /* ── shared row wrapper ── */
-  const rowCls = 'px-5 py-3.5 flex items-center gap-3 hover:bg-[#F0EAD9] transition-colors border-b border-[#E8E0CC] last:border-0';
-
   return (
-    <div className="flex-1 bg-transparent text-stone-800 font-sans w-full">
-
-      {/* ══════════════════════════════
-          1. ROSTER
-      ══════════════════════════════ */}
-      {activeTab === 'roster' && (
-        <div className="flex flex-col h-full">
-          {/* Search bar */}
-          <div className="px-4 py-3 border-b border-[#E8E0CC]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter roster…"
-                className="w-full text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300"
-              />
-            </div>
-          </div>
-
-          {filteredEmployees.length === 0 ? (
-            <EmptyState text="No employees match your search." />
-          ) : (
-            <div className="overflow-y-auto max-h-[480px]">
-              {filteredEmployees.map((emp) => (
-                <div key={emp.id} className={`${rowCls} justify-between group relative`}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Avatar name={emp.full_name} />
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center flex-wrap gap-1.5">
-                        <span className="text-sm font-semibold text-stone-900">{emp.full_name}</span>
-                        <Badge>{emp.employee_code}</Badge>
-                        {emp.monthly_salary > 0 && (
-                          <Badge color="emerald">₹{emp.monthly_salary.toLocaleString('en-IN')}</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 text-[11px] text-stone-400">
-                        <Key className="w-3 h-3" />
-                        <span>Temp: <span className="font-medium text-stone-500">Temp@{emp.employee_code}</span></span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {emp.designation && <Badge color="teal">{emp.designation}</Badge>}
-                        {emp.department && <Badge>{emp.department}</Badge>}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1 text-[11px] text-stone-400 shrink-0">
-                    <button
-                      onClick={() => startEditing(emp)}
-                      className="mb-1 px-2.5 py-1 bg-stone-900 hover:bg-stone-700 text-stone-50 text-[10px] font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                    >
-                      Edit
-                    </button>
-                    <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{emp.email}</span>
-                    {emp.phone_number && (
-                      <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{emp.phone_number}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          className="text-xs border border-[#e9e9e7] rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f]" />
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9b9a97]" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search employee…"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-[#e9e9e7] rounded-md focus:outline-none focus:ring-1 focus:ring-[#37352f]" />
         </div>
-      )}
+        <button onClick={load} className="flex items-center gap-1.5 text-xs text-[#787774] border border-[#e9e9e7] px-3 py-1.5 rounded-md hover:bg-[#f7f6f3]">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </button>
+      </div>
 
-      {/* ══════════════════════════════
-          2. LEAVES
-      ══════════════════════════════ */}
-      {activeTab === 'leaves' && (
-        <div className="overflow-y-auto max-h-[480px]">
-          {leaveRequests.length === 0 ? (
-            <EmptyState text="No pending leave requests." />
-          ) : leaveRequests.map((req) => (
-            <div key={req.id} className={`${rowCls} justify-between`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <Avatar name={req.employee_name} />
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-semibold text-stone-900">{req.employee_name}
-                    <span className="ml-1.5"><Badge>{req.employee_code}</Badge></span>
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <Badge color="amber">{req.leave_type}</Badge>
-                    <span className="text-[11px] text-stone-400">{req.start_date} – {req.end_date}</span>
-                  </div>
-                </div>
-              </div>
-              <ApproveRejectButtons
-                onApprove={async () => {
-                  const { approveOrRejectLeaveWithBalanceAction } = await import('@/lib/actions');
-                  const { data: { user } } = await supabase.auth.getUser();
-                  const { data: prof } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
-                  const res = await approveOrRejectLeaveWithBalanceAction(prof?.company_id, req.id, 'approved');
-                  if (res.success) await refreshOperationalData(); else alert(res.error);
-                }}
-                onReject={() => handleUpdateWorkflowStatus('leave_requests', req.id, 'rejected')}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ══════════════════════════════
-          3. ADVANCES
-      ══════════════════════════════ */}
-      {activeTab === 'advances' && (
-        <div className="overflow-y-auto max-h-[480px]">
-          {advanceRequests.length === 0 ? (
-            <EmptyState text="No pending advance requests." />
-          ) : advanceRequests.map((req) => (
-            <div key={req.id} className={`${rowCls} justify-between`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <Avatar name={req.employee_name} />
-                <div>
-                  <p className="text-sm font-semibold text-stone-900">{req.employee_name}</p>
-                  <p className="text-xs font-semibold text-rose-600 mt-0.5">
-                    ₹{req.requested_amount.toLocaleString('en-IN')}
-                  </p>
-                  {req.reason && (
-                    <p className="text-[11px] text-stone-400 italic mt-0.5 truncate max-w-xs">"{req.reason}"</p>
-                  )}
-                </div>
-              </div>
-              <ApproveRejectButtons
-                onApprove={() => handleUpdateWorkflowStatus('advance_salary_requests', req.id, 'approved')}
-                onReject={() => handleUpdateWorkflowStatus('advance_salary_requests', req.id, 'rejected')}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ══════════════════════════════
-          4. TASKS
-      ══════════════════════════════ */}
-      {activeTab === 'tasks' && (
-        <div className="p-5 space-y-5">
-          {/* Assign form */}
-          <form
-            onSubmit={handleAssignTasks}
-            className="bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg p-4 space-y-3"
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Assign Tasks</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Input
-                required
-                placeholder="Employee code"
-                value={targetEmpCode}
-                onChange={(e) => setTargetEmpCode(e.target.value)}
-              />
-              <div className="col-span-2 flex gap-2">
-                <Input
-                  placeholder="Add a task…"
-                  value={newTaskInput}
-                  onChange={(e) => setNewTaskInput(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={addToTaskArray}
-                  className="shrink-0 w-9 h-9 flex items-center justify-center bg-stone-900 hover:bg-stone-700 text-stone-50 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            {taskArray.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#DDD5C0]">
-                <div className="flex flex-wrap gap-1.5">
-                  {taskArray.map((t, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-[#FDF8F0] border border-[#DDD5C0] text-stone-700 px-2 py-0.5 rounded-md">
-                      {t}
-                      <button type="button" onClick={() => setTaskArray(taskArray.filter((_, j) => j !== i))} className="text-stone-400 hover:text-stone-700 cursor-pointer">
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <button
-                  type="submit"
-                  disabled={pushingTasks}
-                  className="text-xs font-semibold bg-stone-900 hover:bg-stone-700 text-stone-50 px-4 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {pushingTasks ? 'Assigning…' : 'Assign Tasks'}
-                </button>
-              </div>
-            )}
-          </form>
-
-          {/* EOD submissions */}
-          <div className="space-y-2 max-h-[260px] overflow-y-auto">
-            {dailyTaskLogs.filter((t) => t.eod_submission).map((log) => (
-              <div key={log.id} className="p-3.5 bg-[#FDF8F0] border border-[#E8E0CC] rounded-lg space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Avatar name={log.employee_name} />
-                    <span className="text-sm font-semibold text-stone-900">{log.employee_name}</span>
-                    <Badge>{log.employee_code}</Badge>
-                  </div>
-                  <span className="text-[10px] text-stone-400 tabular-nums">
-                    {log.submitted_at ? new Date(log.submitted_at).toLocaleTimeString() : 'N/A'}
-                  </span>
-                </div>
-                <p className="text-[12px] text-stone-600 leading-relaxed pl-9 border-l-2 border-[#DDD5C0] ml-[34px] italic">
-                  "{log.eod_submission}"
-                </p>
-              </div>
+      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Employee</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Check In</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Check Out</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Location</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e9e9e7]">
+            {loading ? (
+              <tr><td colSpan={5} className="text-center py-10 text-[#9b9a97]">Loading…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={5} className="text-center py-10 text-[#9b9a97]">No records for this date</td></tr>
+            ) : filtered.map(r => (
+              <tr key={r.id} className="hover:bg-[#f7f6f3]">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-[#37352f]">{r.profiles?.full_name}</p>
+                  <p className="text-[#9b9a97]">{r.profiles?.employee_id}</p>
+                </td>
+                <td className="px-4 py-3 text-[#787774]">{r.check_in || "—"}</td>
+                <td className="px-4 py-3 text-[#787774]">{r.check_out || "—"}</td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={r.status} />
+                </td>
+                <td className="px-4 py-3 text-[#9b9a97]">
+                  {r.location_lat ? `${r.location_lat.toFixed(4)}, ${r.location_lng?.toFixed(4)}` : "—"}
+                </td>
+              </tr>
             ))}
-          </div>
-        </div>
-      )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
-      {/* ══════════════════════════════
-          5. COMPLIANCE / CORRECTIONS
-      ══════════════════════════════ */}
-      {activeTab === 'compliance' && (
-        <div className="overflow-y-auto max-h-[480px]">
-          {regularizations.length === 0 ? (
-            <EmptyState text="No pending corrections." />
-          ) : regularizations.map((req) => (
-            <div key={req.id} className={`${rowCls} justify-between`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <Avatar name={req.employee_name} />
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold text-stone-900">{req.employee_name}</span>
-                    <Badge>{req.employee_code}</Badge>
-                  </div>
-                  {req.justification && (
-                    <p className="text-[11px] text-stone-400 italic truncate max-w-xs">"{req.justification}"</p>
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: LEAVES
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LeavesTab({ companyId }: { companyId: string }) {
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    let q = supabase.from("leave_requests")
+      .select("*, profiles(full_name, employee_id)")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data } = await q;
+    setRequests(data || []);
+    setLoading(false);
+  }, [companyId, filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function showToast(msg: string, type: "success" | "error" = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function updateStatus(id: string, status: "approved" | "rejected") {
+    const { error } = await supabase.from("leave_requests").update({ status }).eq("id", id);
+    if (error) showToast("Failed to update", "error");
+    else { showToast(`Leave ${status}`); load(); }
+  }
+
+  const filtered = requests.filter(r =>
+    r.profiles?.full_name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9b9a97]" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search employee…"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-[#e9e9e7] rounded-md focus:outline-none focus:ring-1 focus:ring-[#37352f]" />
+        </div>
+        {(["all", "pending", "approved", "rejected"] as const).map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors capitalize ${
+              filter === s ? "bg-[#37352f] text-white border-[#37352f]" : "border-[#e9e9e7] text-[#787774] hover:bg-[#f7f6f3]"
+            }`}>{s}</button>
+        ))}
+      </div>
+
+      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Employee</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Type</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Duration</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Reason</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e9e9e7]">
+            {loading ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">Loading…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">No leave requests</td></tr>
+            ) : filtered.map(r => (
+              <tr key={r.id} className="hover:bg-[#f7f6f3]">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-[#37352f]">{r.profiles?.full_name}</p>
+                  <p className="text-[#9b9a97]">{r.profiles?.employee_id}</p>
+                </td>
+                <td className="px-4 py-3 text-[#787774] capitalize">{r.leave_type}</td>
+                <td className="px-4 py-3 text-[#787774]">
+                  {new Date(r.start_date).toLocaleDateString("en-IN")} → {new Date(r.end_date).toLocaleDateString("en-IN")}
+                </td>
+                <td className="px-4 py-3 text-[#787774] max-w-[200px] truncate">{r.reason}</td>
+                <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                <td className="px-4 py-3">
+                  {r.status === "pending" && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateStatus(r.id, "approved")}
+                        className="p-1 rounded hover:bg-[#edfbf3] text-[#9b9a97] hover:text-[#0f7b43]">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => updateStatus(r.id, "rejected")}
+                        className="p-1 rounded hover:bg-[#fdecea] text-[#9b9a97] hover:text-[#e03e3e]">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
-                  <p className="text-[11px] text-stone-400 font-sans tabular-nums">
-                    {req.target_date} · {req.requested_punch_in?.slice(0, 5)} – {req.requested_punch_out?.slice(0, 5)}
-                  </p>
-                </div>
-              </div>
-              <ApproveRejectButtons
-                onApprove={() => handleUpdateWorkflowStatus('attendance_regularizations', req.id, 'approved')}
-                onReject={() => handleUpdateWorkflowStatus('attendance_regularizations', req.id, 'rejected')}
-              />
-            </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: REGULARISATION — Growth+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RegularisationTab({ companyId }: { companyId: string }) {
+  const [requests, setRequests] = useState<RegularisationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    let q = supabase.from("regularisation_requests")
+      .select("*, profiles(full_name, employee_id)")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data } = await q;
+    setRequests(data || []);
+    setLoading(false);
+  }, [companyId, filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function showToast(msg: string, type: "success" | "error" = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function updateStatus(id: string, status: "approved" | "rejected") {
+    const { error } = await supabase.from("regularisation_requests").update({ status }).eq("id", id);
+    if (error) showToast("Failed to update", "error");
+    else { showToast(`Regularisation ${status}`); load(); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {(["all", "pending", "approved", "rejected"] as const).map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors capitalize ${
+              filter === s ? "bg-[#37352f] text-white border-[#37352f]" : "border-[#e9e9e7] text-[#787774] hover:bg-[#f7f6f3]"
+            }`}>{s}</button>
+        ))}
+      </div>
+
+      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Employee</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Date</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Requested Times</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Reason</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e9e9e7]">
+            {loading ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">Loading…</td></tr>
+            ) : requests.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">No regularisation requests</td></tr>
+            ) : requests.map(r => (
+              <tr key={r.id} className="hover:bg-[#f7f6f3]">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-[#37352f]">{r.profiles?.full_name}</p>
+                  <p className="text-[#9b9a97]">{r.profiles?.employee_id}</p>
+                </td>
+                <td className="px-4 py-3 text-[#787774]">{new Date(r.date).toLocaleDateString("en-IN")}</td>
+                <td className="px-4 py-3 text-[#787774]">
+                  {r.requested_check_in || "—"} → {r.requested_check_out || "—"}
+                </td>
+                <td className="px-4 py-3 text-[#787774] max-w-[180px] truncate">{r.reason}</td>
+                <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                <td className="px-4 py-3">
+                  {r.status === "pending" && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateStatus(r.id, "approved")}
+                        className="p-1 rounded hover:bg-[#edfbf3] text-[#9b9a97] hover:text-[#0f7b43]">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => updateStatus(r.id, "rejected")}
+                        className="p-1 rounded hover:bg-[#fdecea] text-[#9b9a97] hover:text-[#e03e3e]">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: ADVANCES — Growth+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AdvancesTab({ companyId }: { companyId: string }) {
+  const [requests, setRequests] = useState<AdvanceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    let q = supabase.from("advance_requests")
+      .select("*, profiles(full_name, employee_id)")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data } = await q;
+    setRequests(data || []);
+    setLoading(false);
+  }, [companyId, filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function showToast(msg: string, type: "success" | "error" = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function updateStatus(id: string, status: "approved" | "rejected") {
+    const { error } = await supabase.from("advance_requests").update({ status }).eq("id", id);
+    if (error) showToast("Failed to update", "error");
+    else { showToast(`Advance ${status}`); load(); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {(["all", "pending", "approved", "rejected"] as const).map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors capitalize ${
+              filter === s ? "bg-[#37352f] text-white border-[#37352f]" : "border-[#e9e9e7] text-[#787774] hover:bg-[#f7f6f3]"
+            }`}>{s}</button>
+        ))}
+      </div>
+
+      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Employee</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Amount</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Reason</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Requested</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e9e9e7]">
+            {loading ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">Loading…</td></tr>
+            ) : requests.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">No advance requests</td></tr>
+            ) : requests.map(r => (
+              <tr key={r.id} className="hover:bg-[#f7f6f3]">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-[#37352f]">{r.profiles?.full_name}</p>
+                  <p className="text-[#9b9a97]">{r.profiles?.employee_id}</p>
+                </td>
+                <td className="px-4 py-3 font-medium text-[#37352f]">₹{r.amount.toLocaleString("en-IN")}</td>
+                <td className="px-4 py-3 text-[#787774] max-w-[180px] truncate">{r.reason}</td>
+                <td className="px-4 py-3 text-[#9b9a97]">{new Date(r.created_at).toLocaleDateString("en-IN")}</td>
+                <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                <td className="px-4 py-3">
+                  {r.status === "pending" && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateStatus(r.id, "approved")}
+                        className="p-1 rounded hover:bg-[#edfbf3] text-[#9b9a97] hover:text-[#0f7b43]">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => updateStatus(r.id, "rejected")}
+                        className="p-1 rounded hover:bg-[#fdecea] text-[#9b9a97] hover:text-[#e03e3e]">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: TASKS — Growth+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TasksTab({ companyId }: { companyId: string }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "pending" | "in_progress" | "completed">("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [employees, setEmployees] = useState<{ id: string; full_name: string }[]>([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    let q = supabase.from("tasks")
+      .select("*, profiles(full_name, employee_id)")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data } = await q;
+    setTasks(data || []);
+    setLoading(false);
+  }, [companyId, filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    supabase.from("employees").select("id, full_name").eq("company_id", companyId).eq("status", "active")
+      .then(({ data }) => setEmployees(data || []));
+  }, [companyId]);
+
+  function showToast(msg: string, type: "success" | "error" = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function deleteTask(id: string) {
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) showToast("Failed to delete", "error");
+    else { showToast("Task deleted"); load(); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          {(["all", "pending", "in_progress", "completed"] as const).map(s => (
+            <button key={s} onClick={() => setFilter(s)}
+              className={`text-xs px-3 py-1.5 rounded-md border transition-colors capitalize ${
+                filter === s ? "bg-[#37352f] text-white border-[#37352f]" : "border-[#e9e9e7] text-[#787774] hover:bg-[#f7f6f3]"
+              }`}>{s.replace("_", " ")}</button>
           ))}
         </div>
+        <button onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#37352f] px-3 py-1.5 rounded-md hover:bg-[#2d2c28]">
+          <Plus className="w-3.5 h-3.5" /> Assign Task
+        </button>
+      </div>
+
+      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Task</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Assigned To</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Priority</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Due Date</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e9e9e7]">
+            {loading ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">Loading…</td></tr>
+            ) : tasks.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-10 text-[#9b9a97]">No tasks found</td></tr>
+            ) : tasks.map(t => (
+              <tr key={t.id} className="hover:bg-[#f7f6f3]">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-[#37352f]">{t.title}</p>
+                  {t.description && <p className="text-[#9b9a97] truncate max-w-[200px]">{t.description}</p>}
+                </td>
+                <td className="px-4 py-3">
+                  <p className="text-[#787774]">{t.profiles?.full_name}</p>
+                  <p className="text-[#9b9a97]">{t.profiles?.employee_id}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <PriorityBadge priority={t.priority} />
+                </td>
+                <td className="px-4 py-3 text-[#787774]">
+                  {t.due_date ? new Date(t.due_date).toLocaleDateString("en-IN") : "—"}
+                </td>
+                <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
+                <td className="px-4 py-3">
+                  <button onClick={() => deleteTask(t.id)}
+                    className="p-1 rounded hover:bg-[#fdecea] text-[#9b9a97] hover:text-[#e03e3e]">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showAddModal && (
+        <AddTaskModal
+          companyId={companyId}
+          employees={employees}
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => { load(); showToast("Task assigned"); setShowAddModal(false); }}
+        />
       )}
 
-      {/* ══════════════════════════════
-          6. PAYROLL
-      ══════════════════════════════ */}
-      {activeTab === 'payroll' && (
-        <div className="p-5 space-y-4">
-          {/* Controls */}
-          <div className="flex flex-row items-center gap-3">
-            <input
-              type="text"
-              value={targetMonth}
-              onChange={(e) => setTargetMonth(e.target.value)}
-              className="w-32 shrink-0 text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400"
-            />
-            <button
-              onClick={handleProcessPayrollLedger}
-              disabled={processingPayroll || employees.length === 0}
-              className="flex items-center gap-1.5 text-xs font-semibold bg-stone-900 hover:bg-stone-700 text-stone-50 px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
-            >
-              <Banknote className="w-3.5 h-3.5" />
-              {processingPayroll ? 'Processing…' : 'Disburse Payroll'}
-            </button>
-          </div>
-          {payrollStatus && (
-            <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-sans">
-              {payrollStatus}
-            </div>
-          )}
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
 
-          {/* Table */}
-          <div className="border border-[#DDD5C0] rounded-lg overflow-hidden overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[520px]">
-              <thead>
-                <tr className="bg-[#F0EAD9] border-b border-[#DDD5C0]">
-                  {['Employee', 'Gross Salary', 'Net Take-Home'].map((h) => (
-                    <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E8E0CC]">
-                {employees.map((emp) => {
-                  const breakdown = calculateIndianPayrollBreakdown(emp.monthly_salary);
-                  return (
-                    <tr key={emp.id} className="hover:bg-[#F0EAD9] transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar name={emp.full_name} />
-                          <div>
-                            <p className="text-sm font-semibold text-stone-900">{emp.full_name}</p>
-                            <p className="text-[10px] text-stone-400">{emp.employee_code}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-stone-700 tabular-nums">
-                        ₹{breakdown.gross.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-emerald-700 tabular-nums">
-                        ₹{breakdown.netHome.toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB: EOD REPORTS — Growth+
+// ─────────────────────────────────────────────────────────────────────────────
 
-      {/* ══════════════════════════════
-          7. LOGS
-      ══════════════════════════════ */}
-      {activeTab === 'logs' && (
-        <div className="p-5 space-y-4">
-          {/* Filters + export */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-40">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search logs…"
-                className="w-full text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300"
-              />
-            </div>
-            <select
-              value={selectedLogType}
-              onChange={(e) => setSelectedLogType(e.target.value)}
-              className="text-sm font-sans text-stone-700 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">All events</option>
-              <option value="NODE_PROVISIONED">Provisioned</option>
-              <option value="PERIMETER_MUTATED">Perimeters</option>
-              <option value="PAYROLL_DISBURSED">Payroll</option>
-              <option value="LEAVE_CLEARANCE_APPROVED">Leave Approved</option>
-            </select>
-            <button
-              onClick={() => handleExportAuditLogsToCSV(filteredSystemLogs)}
-              disabled={filteredSystemLogs.length === 0}
-              className="flex items-center gap-1.5 text-xs font-semibold text-stone-700 hover:text-stone-900 bg-[#F0EAD9] hover:bg-[#E8E0CC] border border-[#DDD5C0] px-3.5 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-40"
-            >
-              <Download className="w-3.5 h-3.5" /> Export CSV
-            </button>
-          </div>
+function EODTab({ companyId }: { companyId: string }) {
+  const [reports, setReports] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selected, setSelected] = useState<any | null>(null);
 
-          {/* Log feed */}
-          <div className="border border-[#DDD5C0] rounded-lg overflow-hidden">
-            <div className="px-4 py-2.5 bg-[#F0EAD9] border-b border-[#DDD5C0] flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5 text-stone-400" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Audit trail</span>
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("eod_reports")
+      .select("*, profiles(full_name, employee_id)")
+      .eq("company_id", companyId)
+      .eq("date", date)
+      .order("created_at", { ascending: false });
+    setReports(data || []);
+    setLoading(false);
+  }, [companyId, date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          className="text-xs border border-[#e9e9e7] rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f]" />
+        <button onClick={load} className="flex items-center gap-1.5 text-xs text-[#787774] border border-[#e9e9e7] px-3 py-1.5 rounded-md hover:bg-[#f7f6f3]">
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </button>
+      </div>
+
+      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-[#f7f6f3] border-b border-[#e9e9e7]">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Employee</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Summary</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Submitted</th>
+              <th className="text-left px-4 py-2.5 font-medium text-[#9b9a97]">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e9e9e7]">
+            {loading ? (
+              <tr><td colSpan={4} className="text-center py-10 text-[#9b9a97]">Loading…</td></tr>
+            ) : reports.length === 0 ? (
+              <tr><td colSpan={4} className="text-center py-10 text-[#9b9a97]">No EOD reports for this date</td></tr>
+            ) : reports.map(r => (
+              <tr key={r.id} className="hover:bg-[#f7f6f3]">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-[#37352f]">{r.profiles?.full_name}</p>
+                  <p className="text-[#9b9a97]">{r.profiles?.employee_id}</p>
+                </td>
+                <td className="px-4 py-3 text-[#787774] max-w-[250px] truncate">{r.summary}</td>
+                <td className="px-4 py-3 text-[#9b9a97]">
+                  {new Date(r.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                </td>
+                <td className="px-4 py-3">
+                  <button onClick={() => setSelected(r)}
+                    className="p-1 rounded hover:bg-[#f7f6f3] text-[#9b9a97] hover:text-[#37352f]">
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Report detail modal */}
+      {selected && (
+        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg border border-[#e9e9e7] w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-[#37352f]">EOD Report</p>
+              <button onClick={() => setSelected(null)} className="text-[#9b9a97] hover:text-[#37352f]">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            {filteredSystemLogs.length === 0 ? (
-              <EmptyState text="No events recorded yet." />
-            ) : (
-              <div className="divide-y divide-[#E8E0CC] max-h-[300px] overflow-y-auto">
-                {filteredSystemLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="px-4 py-3 flex flex-col sm:flex-row sm:items-start justify-between gap-2 hover:bg-[#F0EAD9] transition-colors"
-                  >
-                    <div className="space-y-0.5 min-w-0">
-                      <div className="flex items-center flex-wrap gap-1.5">
-                        <Badge>{log.event_type}</Badge>
-                        <span className="text-[11px] text-stone-400">
-                          by <span className="font-medium text-stone-600">{log.actor_name}</span>
-                        </span>
-                      </div>
-                      <p className="text-sm text-stone-700">› {log.description}</p>
-                    </div>
-                    <span className="text-[10px] text-stone-400 tabular-nums shrink-0">
-                      {new Date(log.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
+            <div className="space-y-2 text-xs">
+              <p><span className="text-[#9b9a97]">Employee:</span> <span className="text-[#37352f] font-medium">{selected.profiles?.full_name}</span></p>
+              <p><span className="text-[#9b9a97]">Date:</span> <span className="text-[#787774]">{new Date(selected.date).toLocaleDateString("en-IN")}</span></p>
+              <div>
+                <p className="text-[#9b9a97] mb-1">Summary:</p>
+                <p className="text-[#37352f] leading-relaxed bg-[#f7f6f3] rounded p-3">{selected.summary}</p>
               </div>
-            )}
+              {selected.tasks_completed && (
+                <div>
+                  <p className="text-[#9b9a97] mb-1">Tasks Completed:</p>
+                  <p className="text-[#787774] leading-relaxed">{selected.tasks_completed}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MODALS & HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AddTaskModal({ companyId, employees, onClose, onSaved }: {
+  companyId: string;
+  employees: { id: string; full_name: string }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    employee_id: "",
+    title: "",
+    description: "",
+    due_date: "",
+    priority: "medium" as "low" | "medium" | "high",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    if (!form.employee_id || !form.title) { setError("Employee and title are required"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("tasks").insert({
+      ...form,
+      company_id: companyId,
+      status: "pending",
+    });
+    if (error) { setError(error.message); setSaving(false); }
+    else onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg border border-[#e9e9e7] w-full max-w-md p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-[#37352f]">Assign Task</p>
+          <button onClick={onClose} className="text-[#9b9a97] hover:text-[#37352f]"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-[#787774] mb-1">Employee *</label>
+            <select value={form.employee_id} onChange={e => setForm(p => ({ ...p, employee_id: e.target.value }))}
+              className="w-full text-xs border border-[#e9e9e7] rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f]">
+              <option value="">Select employee…</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-[#787774] mb-1">Task Title *</label>
+            <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+              className="w-full text-xs border border-[#e9e9e7] rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f]" />
+          </div>
+          <div>
+            <label className="block text-xs text-[#787774] mb-1">Description</label>
+            <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+              rows={3} className="w-full text-xs border border-[#e9e9e7] rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f] resize-none" />
+          </div>
+          <div>
+            <label className="block text-xs text-[#787774] mb-1">Due Date</label>
+            <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
+              className="w-full text-xs border border-[#e9e9e7] rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f]" />
+          </div>
+          <div>
+            <label className="block text-xs text-[#787774] mb-1">Priority</label>
+            <select value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value as any }))}
+              className="w-full text-xs border border-[#e9e9e7] rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#37352f]">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+        {error && <p className="text-xs text-[#e03e3e]">{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 text-xs py-2 border border-[#e9e9e7] rounded-md hover:bg-[#f7f6f3]">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 text-xs py-2 bg-[#37352f] text-white rounded-md hover:bg-[#2d2c28] disabled:opacity-40">
+            {saving ? "Saving…" : "Assign Task"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    present: "bg-[#edfbf3] text-[#0f7b43]",
+    approved: "bg-[#edfbf3] text-[#0f7b43]",
+    completed: "bg-[#edfbf3] text-[#0f7b43]",
+    pending: "bg-[#fff8e6] text-[#c67c00]",
+    in_progress: "bg-[#e8f4fd] text-[#2eaadc]",
+    late: "bg-[#fff8e6] text-[#c67c00]",
+    half_day: "bg-[#f0e8fd] text-[#9b59b6]",
+    absent: "bg-[#fdecea] text-[#e03e3e]",
+    rejected: "bg-[#fdecea] text-[#e03e3e]",
+    inactive: "bg-[#f7f6f3] text-[#9b9a97]",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${map[status] || "bg-[#f7f6f3] text-[#9b9a97]"}`}>
+      {status.replace("_", " ")}
+    </span>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const map: Record<string, string> = {
+    high: "bg-[#fdecea] text-[#e03e3e]",
+    medium: "bg-[#fff8e6] text-[#c67c00]",
+    low: "bg-[#f7f6f3] text-[#9b9a97]",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${map[priority] || "bg-[#f7f6f3] text-[#9b9a97]"}`}>
+      {priority}
+    </span>
+  );
+}
+
+function Toast({ msg, type }: { msg: string; type: "success" | "error" }) {
+  return (
+    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-md text-sm shadow-lg ${
+      type === "success" ? "bg-[#0f7b43] text-white" : "bg-[#e03e3e] text-white"
+    }`}>
+      {type === "success" ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+      {msg}
     </div>
   );
 }

@@ -43,7 +43,7 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto px-4">
-          <Link href="/signup" className="bg-teal-700 text-white font-semibold px-8 py-4 rounded-xl text-md hover:bg-teal-800 transition-all shadow-lg shadow-teal-900/20">Start 14-Day Free Trial</Link>
+          <Link href="/signup" className="bg-teal-700 text-white font-semibold px-8 py-4 rounded-xl text-md hover:bg-teal-800 transition-all shadow-lg shadow-teal-900/20">Start 7-Day Free Trial</Link>
           <Link href="#pricing" className="bg-white text-slate-800 border border-slate-300 font-semibold px-8 py-4 rounded-xl text-md hover:bg-slate-50 transition-all">View Local Plans</Link>
         </div>
 

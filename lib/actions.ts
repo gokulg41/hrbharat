@@ -24,6 +24,8 @@ export async function onboardEmployeeAction(data: {
   bankAccount: string|null;
   ifscCode: string|null;
   joiningDate: string;
+  isAdmin?: boolean;
+  managerId?: string | null;
 }) {
   try {
     console.log("STEP 1: Starting employee onboarding");
@@ -31,6 +33,7 @@ export async function onboardEmployeeAction(data: {
     const tempPassword = `Temp@${data.employeeCode.trim()}`;
     const cleanEmail = data.email.toLowerCase().trim();
     const cleanEmpCode = data.employeeCode.toUpperCase().trim();
+    const assignedRole = data.isAdmin ? 'admin' : 'employee';
 
     // CREATE AUTH USER
     const { data: authData, error: authError } =
@@ -39,7 +42,7 @@ export async function onboardEmployeeAction(data: {
         password: tempPassword,
         email_confirm: true,
         user_metadata: {
-          role: "employee",
+          role: assignedRole,
         },
       });
 
@@ -72,7 +75,7 @@ export async function onboardEmployeeAction(data: {
           company_id: data.companyId,
           full_name: data.fullName.trim(),
           email: cleanEmail,
-          role: "employee",
+          role: assignedRole,
           must_reset_password: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -135,6 +138,8 @@ export async function onboardEmployeeAction(data: {
           paid_leave_balance: 18,
 
           status: "active",
+          role: assignedRole,
+          manager_id: data.managerId || null,
 
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -163,7 +168,7 @@ export async function onboardEmployeeAction(data: {
         company_id: data.companyId,
         actor_name: "Admin",
         event_type: "EMPLOYEE_CREATED",
-        description: `Employee ${data.fullName} (${cleanEmpCode}) onboarded.`,
+        description: `${data.isAdmin ? 'Admin' : 'Employee'} ${data.fullName} (${cleanEmpCode}) onboarded.${data.managerId ? ` Assigned under manager ${data.managerId}.` : ''}`,
         created_at: new Date().toISOString(),
       });
 

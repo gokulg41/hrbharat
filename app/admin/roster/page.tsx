@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { onboardEmployeeAction } from '@/lib/actions';
+import { usePlan } from '@/lib/usePlan';
 import {
   Search,
   Users,
@@ -22,6 +24,8 @@ import {
   Copy,
   Check,
   UserPlus,
+  Lock,
+  Zap,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
@@ -100,7 +104,14 @@ function CopyButton({ text }: { text: string }) {
 /* ─────────────────────────────────────────────
    Onboard New Employee Modal
 ───────────────────────────────────────────── */
-function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated: (emp: any) => void }) {
+function OnboardModal({ onClose, onCreated, canMakeAdmin, currentAdminCount, maxAdmins, managerId }: { 
+  onClose: () => void; 
+  onCreated: (emp: any) => void;
+  canMakeAdmin: boolean;
+  currentAdminCount: number;
+  maxAdmins: number;
+  managerId: string;
+}) {
   const [form, setForm] = useState({
     full_name: '',
     employee_code: '',
@@ -112,8 +123,11 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     bank_account_number: '',
     ifsc_code: '',
   });
+  const [isAdmin, setIsAdmin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const adminLimitReached = maxAdmins !== Infinity && currentAdminCount >= maxAdmins;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,6 +156,8 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         bankAccount: (form.bank_account_number || '').trim() || null,
         ifscCode: (form.ifsc_code || '').trim() || null,
         joiningDate: new Date().toISOString().split('T')[0],
+        isAdmin,
+        managerId: isAdmin ? null : managerId,
       };
       const res = await onboardEmployeeAction(payload);
       if (res.success) {
@@ -156,6 +172,8 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           phone_number: payload.phone || null,
           bank_account_number: payload.bankAccount,
           ifsc_code: payload.ifscCode,
+          role: isAdmin ? 'admin' : 'employee',
+          manager_id: payload.managerId,
         });
         onClose();
       } else {
@@ -218,6 +236,41 @@ function OnboardModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               {field('Bank Account', 'bank_account_number')}
               {field('IFSC Code', 'ifsc_code')}
             </div>
+
+            {/* Make Admin toggle — Growth/Business only */}
+            {canMakeAdmin && (
+              <div className={`rounded-lg border px-3 py-3 space-y-1 ${isAdmin ? 'bg-stone-50 border-stone-300' : 'bg-[#FAF5EB] border-[#DDD5C0]'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-stone-800 font-sans">Make Admin</p>
+                    <p className="text-[10px] text-stone-400 font-sans mt-0.5">
+                      Admin can onboard and manage their own team
+                    </p>
+                  </div>
+                  {adminLimitReached ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-sans font-semibold">
+                      <Lock className="w-3 h-3" />
+                      Limit reached ({currentAdminCount}/{maxAdmins})
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsAdmin(v => !v)}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${isAdmin ? 'bg-stone-900' : 'bg-stone-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isAdmin ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  )}
+                </div>
+                {adminLimitReached && (
+                  <p className="text-[10px] text-amber-600 font-sans">
+                    Upgrade your plan to add more admins.{' '}
+                    <a href="/admin/settings/billing" className="underline font-semibold">Upgrade</a>
+                  </p>
+                )}
+              </div>
+            )}
+
             {error && (
               <div className="px-3 py-2 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-lg font-sans">
                 {error}
@@ -340,6 +393,7 @@ function EditModal({ emp, onClose, onSave }: { emp: any; onClose: () => void; on
 ───────────────────────────────────────────── */
 export default function RosterPage() {
   const router = useRouter();
+  const { features, plan } = usePlan();
 
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -350,6 +404,9 @@ export default function RosterPage() {
   const [sortBy, setSortBy] = useState<'name' | 'salary'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showOnboard, setShowOnboard] = useState(false);
+  const [adminCount, setAdminCount] = useState(0);
+  const [profileId, setProfileId] = useState<string>('');
+  const [isOwner, setIsOwner] = useState(false);
 
   /* ── Load ── */
   useEffect(() => {
@@ -358,16 +415,49 @@ export default function RosterPage() {
       if (!user) { router.push('/login'); return; }
 
       const { data: profile } = await supabase
-        .from('profiles').select('company_id, role').eq('id', user.id).single();
+        .from('profiles').select('company_id, role, id').eq('id', user.id).single();
       if (!profile || profile.role !== 'admin') { router.push('/login'); return; }
 
-      const { data } = await supabase
+      setProfileId(profile.id);
+
+      // Owner = has company_id directly on their profile (set during registration)
+      // Sub-admins are onboarded employees with role=admin
+      const { data: ownerCheck } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('id', profile.company_id)
+        .single();
+      // If they have a company row they own, they're the owner
+      const { data: empCheck } = await supabase
+        .from('employees')
+        .select('id, manager_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      const owner = !empCheck; // owner has no employee row
+      setIsOwner(owner);
+
+      // Fetch employees — owner sees all, sub-admin sees their team
+      const empQuery = supabase
         .from('employees')
         .select('*')
-        .eq('company_id', profile.company_id)
-        .order('full_name');
+        .eq('company_id', profile.company_id);
 
+      if (!owner) {
+        empQuery.eq('manager_id', profile.id);
+      }
+
+      const { data } = await empQuery.order('full_name');
       if (data) setEmployees(data);
+
+      // Count current admins
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', profile.company_id)
+        .eq('role', 'admin');
+      setAdminCount(count || 0);
+
       setLoading(false);
     }
     load();
@@ -431,6 +521,10 @@ export default function RosterPage() {
   const totalSalary = employees.reduce((s, e) => s + (Number(e.monthly_salary) || 0), 0);
   const deptCount = new Set(employees.map(e => e.department).filter(Boolean)).size;
 
+  const maxEmployees = features.maxEmployees; // 10 | 30 | Infinity
+  const atLimit = maxEmployees !== Infinity && employees.length >= maxEmployees;
+  const limitLabel = maxEmployees === Infinity ? '∞' : String(maxEmployees);
+
   const toggleSort = (col: 'name' | 'salary') => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortBy(col); setSortDir('asc'); }
@@ -463,9 +557,21 @@ export default function RosterPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">Employee Roster</h1>
-            <p className="text-sm text-stone-500 font-sans mt-0.5">All onboarded employees in your workspace</p>
+            <p className="text-sm text-stone-500 font-sans mt-0.5">
+              {isOwner ? 'All onboarded employees in your workspace' : 'Your team members'}
+            </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {atLimit ? (
+              <Link
+                href="/admin/settings/billing"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-200 text-xs font-semibold font-sans text-stone-500 transition-colors border border-stone-300"
+                title={`Employee limit reached (${maxEmployees}/${maxEmployees}). Upgrade to add more.`}
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Limit Reached · Upgrade
+              </Link>
+            ) : (
             <button
               onClick={() => setShowOnboard(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-900 hover:bg-stone-700 text-xs font-semibold font-sans text-stone-50 transition-colors"
@@ -473,6 +579,7 @@ export default function RosterPage() {
               <UserPlus className="w-3.5 h-3.5" />
               Onboard Employee
             </button>
+            )}
             <button
               onClick={handleExport}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#DDD5C0] bg-[#FDF8F0] text-xs font-semibold font-sans text-stone-600 hover:bg-[#F0EAD9] hover:text-stone-900 transition-colors"
@@ -488,8 +595,8 @@ export default function RosterPage() {
           <StatCard
             icon={<Users className="w-5 h-5 text-stone-500" />}
             label="Total Onboarded"
-            value={employees.length.toString()}
-            sub="active employees"
+            value={`${employees.length} / ${limitLabel}`}
+            sub={atLimit ? '⚠ Plan limit reached' : `${maxEmployees === Infinity ? 'Unlimited' : maxEmployees - employees.length + ' slots remaining'}`}
           />
           <StatCard
             icon={<Building2 className="w-5 h-5 text-stone-500" />}
@@ -504,6 +611,31 @@ export default function RosterPage() {
             sub="gross total"
           />
         </div>
+
+        {/* ── Plan limit banner ── */}
+        {atLimit && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+                <Zap className="w-4 h-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-900 font-sans">
+                  Employee limit reached ({employees.length}/{maxEmployees})
+                </p>
+                <p className="text-xs text-amber-700 font-sans mt-0.5">
+                  Your <span className="font-semibold capitalize">{plan}</span> plan supports up to {maxEmployees} employees. Upgrade to add more.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/settings/billing"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold font-sans transition-colors"
+            >
+              Upgrade plan
+            </Link>
+          </div>
+        )}
 
         {/* ── Filters ── */}
         <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl px-4 py-3 flex flex-col sm:flex-row gap-3">
@@ -710,7 +842,14 @@ export default function RosterPage() {
       {showOnboard && (
         <OnboardModal
           onClose={() => setShowOnboard(false)}
-          onCreated={(newEmp) => setEmployees(prev => [...prev, newEmp].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')))}
+          onCreated={(newEmp) => {
+            setEmployees(prev => [...prev, newEmp].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')));
+            if (newEmp.role === 'admin') setAdminCount(c => c + 1);
+          }}
+          canMakeAdmin={isOwner && (features.maxAdmins > 1)}
+          currentAdminCount={adminCount}
+          maxAdmins={features.maxAdmins}
+          managerId={profileId}
         />
       )}
     </div>

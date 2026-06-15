@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { usePlan } from '@/lib/usePlan';
 import {
   LayoutDashboard,
   UserPlus,
@@ -14,6 +15,8 @@ import {
   Users,
   Menu,
   X,
+  Lock,
+  Zap,
 } from 'lucide-react';
 
 export default function AdminSidebarLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +24,8 @@ export default function AdminSidebarLayout({ children }: { children: React.React
   const [adminName, setAdminName] = useState('Administrator');
   const [companyName, setCompanyName] = useState('Your Company');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [lockedNav, setLockedNav] = useState<string | null>(null);
+  const { features, plan, loading: planLoading } = usePlan();
 
   // Close drawer on route change
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -40,10 +45,10 @@ export default function AdminSidebarLayout({ children }: { children: React.React
   }, []);
 
   const navigationLinks = [
-    { name: 'My Portal',      href: '/admin/dashboard',        icon: LayoutDashboard },
-    { name: 'Workforce Deck', href: '/admin',                   icon: UserPlus },
-    { name: 'Roster',         href: '/admin/roster',            icon: Users },
-    { name: 'Payroll',        href: '/admin/payroll',           icon: Banknote },
+    { name: 'My Portal',      href: '/admin/dashboard', icon: LayoutDashboard, locked: false },
+    { name: 'Workforce Deck', href: '/admin',            icon: UserPlus,        locked: false },
+    { name: 'Roster',         href: '/admin/roster',     icon: Users,           locked: false },
+    { name: 'Payroll',        href: '/admin/payroll',    icon: Banknote,        locked: false },
   ];
 
   const handleLogout = async () => {
@@ -87,6 +92,23 @@ export default function AdminSidebarLayout({ children }: { children: React.React
           {navigationLinks.map((link) => {
             const isActive = pathname === link.href;
             const Icon = link.icon;
+
+            if (link.locked) {
+              return (
+                <button
+                  key={link.href}
+                  onClick={() => setLockedNav(link.name)}
+                  className="group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors text-stone-400 hover:bg-[#F0EAD9] hover:text-stone-500 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4 shrink-0 text-stone-300 group-hover:text-stone-400" />
+                    <span>{link.name}</span>
+                  </div>
+                  <Lock className="w-3 h-3 text-stone-300 group-hover:text-stone-400" />
+                </button>
+              );
+            }
+
             return (
               <Link
                 key={link.href}
@@ -181,6 +203,68 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       <main className="flex-1 md:pl-60 min-h-screen pt-12 md:pt-0">
         {children}
       </main>
+
+      {/* ── Locked feature upgrade modal ── */}
+      {lockedNav && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setLockedNav(null)}
+        >
+          <div
+            className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl shadow-xl p-6 w-full max-w-sm flex flex-col items-center text-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Lock icon */}
+            <div className="w-12 h-12 rounded-full bg-white border border-[#DDD5C0] flex items-center justify-center">
+              <Lock className="w-5 h-5 text-stone-400" />
+            </div>
+
+            {/* Message */}
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-stone-900 font-sans">{lockedNav}</p>
+              <p className="text-xs text-stone-500 font-sans leading-relaxed">
+                This feature is available on the{' '}
+                <span className="font-semibold text-stone-800">Business plan</span> and above.
+              </p>
+            </div>
+
+            {/* Plan badge */}
+            <div className="flex items-center gap-2 bg-white border border-[#DDD5C0] rounded-lg px-4 py-2.5 text-sm font-sans">
+              <Zap className="w-4 h-4 text-stone-400" />
+              <span className="font-semibold text-stone-800">Business</span>
+              <span className="text-stone-400">·</span>
+              <span className="text-stone-500">₹3,999/mo</span>
+              <span className="text-stone-400">·</span>
+              <span className="text-xs text-stone-400">Up to 75 employees</span>
+            </div>
+
+            {/* Current plan */}
+            <p className="text-xs text-stone-400 font-sans">
+              Current plan:{' '}
+              <span className="capitalize font-semibold text-stone-500">
+                {plan === 'none' ? 'No active plan' : plan}
+              </span>
+            </p>
+
+            {/* Actions */}
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setLockedNav(null)}
+                className="flex-1 text-sm font-medium font-sans px-4 py-2 rounded-lg border border-[#DDD5C0] text-stone-600 hover:bg-[#F0EAD9] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <Link
+                href="/admin/settings/billing"
+                className="flex-1 text-sm font-medium font-sans px-4 py-2 rounded-lg bg-stone-900 text-white hover:bg-stone-800 transition-colors text-center"
+                onClick={() => setLockedNav(null)}
+              >
+                Upgrade plan
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -1,31 +1,29 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Loader2, ChevronRight } from 'lucide-react';
 
-export default function SmartRegistrationGate() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
-  
-  // Geofencing Location States
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
-  const [radius, setRadius] = useState('100'); // Default to 100 meters
-  
+  const [radius, setRadius] = useState('100');
   const [submitting, setSubmitting] = useState(false);
   const [fetchingGeo, setFetchingGeo] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Helper to instantly grab current live coordinates from browser
   const handleDetectCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by this browser engine.");
+      alert("Geolocation is not supported by this browser.");
       return;
     }
     setFetchingGeo(true);
@@ -36,15 +34,14 @@ export default function SmartRegistrationGate() {
         setFetchingGeo(false);
       },
       (error) => {
-        alert(`Location detection failed: ${error.message}. Please input manually.`);
+        alert(`Could not detect location: ${error.message}`);
         setFetchingGeo(false);
       },
       { enableHighAccuracy: true }
     );
   };
 
-  // THIS IS THE MAIN ENTRY FUNCTION LOOP THAT HANDLES YOUR SUBMISSION PIPELINE
-  const handleRegisterPipeline = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email || !password) return;
     setSubmitting(true);
@@ -53,22 +50,18 @@ export default function SmartRegistrationGate() {
     const normalizedEmail = email.toLowerCase().trim();
 
     try {
-      // 1. Check if an Admin has pre-registered this email address as an employee
+      // 1. Check if pre-registered as an employee
       const { data: preRegisteredEmployee } = await supabase
         .from('employees')
         .select('*')
         .eq('email', normalizedEmail)
         .maybeSingle();
 
-      // 2. Provision authorization token inside Supabase secure auth vault
+      // 2. Create auth account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: normalizedEmail,
-        password: password,
-        options: {
-          data: {
-            full_name: fullName,
-          }
-        }
+        password,
+        options: { data: { full_name: fullName } },
       });
 
       if (authError) {
@@ -77,171 +70,261 @@ export default function SmartRegistrationGate() {
         return;
       }
 
-      if (authData?.user) {
-        // FIXED: Set role explicitly to 'admin' when registering a fresh workspace
-        let assignedRole = 'admin';
-        let finalCompanyId = '';
+      if (!authData?.user) {
+        setErrorMessage("Account creation failed. Please try again.");
+        setSubmitting(false);
+        return;
+      }
 
-        if (preRegisteredEmployee) {
-          // MATCH DETECTED: The user is a pre-registered employee!
-          assignedRole = 'employee';
-          finalCompanyId = preRegisteredEmployee.company_id;
+      let assignedRole = 'admin';
+      let finalCompanyId = '';
 
-          // Link employee record to the live user account
-          const { error: employeeLinkError } = await supabase
-            .from('employees')
-            .update({ id: authData.user.id })
-            .eq('id', preRegisteredEmployee.id);
+      if (preRegisteredEmployee) {
+        // ── EMPLOYEE: link to existing company ──────────────────────
+        assignedRole = 'employee';
+        finalCompanyId = preRegisteredEmployee.company_id;
 
-          if (employeeLinkError) {
-            setErrorMessage(`Employee Account Association Failed: ${employeeLinkError.message}`);
-            setSubmitting(false);
-            return;
-          }
+        const { error: linkError } = await supabase
+          .from('employees')
+          .update({ id: authData.user.id })
+          .eq('id', preRegisteredEmployee.id);
 
-        } else {
-          // NO MATCH: The user is an admin registering a brand new company
-          const freshCompanyId = crypto.randomUUID();
-          finalCompanyId = freshCompanyId;
-
-          // Build their corporate entity workspace with custom GPS parameters
-          const { error: companyError } = await supabase
-            .from('companies')
-            .insert({
-              id: freshCompanyId,
-              name: companyName || `${fullName}'s Enterprise`,
-              owner_id: authData.user.id,
-              business_type: "Digital Products & SaaS",
-              address: "Remote / Digital Workspace",
-              phone: "0000000000",
-              office_latitude: latitude ? parseFloat(latitude) : 28.6139,
-              office_longitude: longitude ? parseFloat(longitude) : 77.2090,
-              allowed_radius_meters: radius ? parseInt(radius) : 100
-            });
-
-          if (companyError) {
-            setErrorMessage(`Company Workspace Registration Failure: ${companyError.message}`);
-            setSubmitting(false);
-            return;
-          }
-        }
-
-        // 3. SECURE UPSERT PROFILE STEP
-        const profileData = {
-          id: authData.user.id,
-          full_name: fullName,
-          role: assignedRole,
-          company_id: finalCompanyId
-        };
-
-        const { error: upsertError } = await supabase
-          .from('profiles')
-          .upsert(profileData, { onConflict: 'id' });
-
-        if (upsertError) {
-          setErrorMessage(`Profile Initialization Error: ${upsertError.message}`);
+        if (linkError) {
+          setErrorMessage(`Could not link employee account: ${linkError.message}`);
           setSubmitting(false);
           return;
         }
+      } else {
+        // ── ADMIN: create a new company ──────────────────────────────
+        assignedRole = 'admin';
+        const freshCompanyId = crypto.randomUUID();
+        finalCompanyId = freshCompanyId;
 
-        // Redirect directly to the secure login screen
-        router.push('/login');
+        const { error: companyError } = await supabase
+          .from('companies')
+          .insert({
+            id: freshCompanyId,
+            name: companyName || `${fullName}'s Company`,
+            owner_id: authData.user.id,
+            business_type: "Digital Products & SaaS",
+            address: "Remote / Digital Workspace",
+            phone: "0000000000",
+            office_latitude: latitude ? parseFloat(latitude) : 28.6139,
+            office_longitude: longitude ? parseFloat(longitude) : 77.2090,
+            allowed_radius_meters: radius ? parseInt(radius) : 100,
+          });
+
+        if (companyError) {
+          setErrorMessage(`Could not create company: ${companyError.message}`);
+          setSubmitting(false);
+          return;
+        }
       }
+
+      // 3. Upsert profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert(
+          { id: authData.user.id, full_name: fullName, role: assignedRole, company_id: finalCompanyId },
+          { onConflict: 'id' }
+        );
+
+      if (profileError) {
+        setErrorMessage(`Profile error: ${profileError.message}`);
+        setSubmitting(false);
+        return;
+      }
+
+      // 4. ── REDIRECT BY ROLE ───────────────────────────────────────────
+      if (assignedRole === 'employee') {
+        router.push('/employee');
+      } else {
+        // Admin → plan selection, preserving ?plan= from landing page CTA
+        const planParam = searchParams.get('plan');
+        router.push(planParam ? `/signup/plan?plan=${planParam}` : '/signup/plan');
+      }
+
     } catch (err: any) {
-      setErrorMessage(err.message || "An unexpected system registration breakdown occurred.");
+      setErrorMessage(err.message || "An unexpected error occurred.");
       setSubmitting(false);
     }
   };
 
+  const inputClass =
+    "w-full text-sm px-3 py-2 border border-[#e9e9e7] rounded-md bg-white text-[#37352f] placeholder:text-[#c1c0bb] focus:outline-none focus:ring-2 focus:ring-[#2eaadc]/30 focus:border-[#2eaadc] transition-all";
+
+  const labelClass = "block text-xs font-medium text-[#787774] mb-1.5";
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-6 lg:px-8 font-sans antialiased">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="text-center text-3xl font-black text-slate-900 tracking-tight">Create your account</h2>
-        <p className="mt-2 text-center text-xs text-slate-500 font-medium">
-          HRBharat • Central Workspace Gateway Node
-        </p>
+    <div className="min-h-screen bg-white font-sans text-[#37352f] flex">
+
+      {/* ── LEFT PANEL — branding ── */}
+      <div className="hidden lg:flex lg:w-2/5 bg-[#f7f6f3] border-r border-[#e9e9e7] flex-col justify-between p-10">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-[#37352f] flex items-center justify-center shrink-0">
+            <span className="text-white text-[9px] font-bold">HB</span>
+          </div>
+          <span className="font-semibold text-[#37352f]">HRBharat</span>
+        </div>
+
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-[#37352f] leading-snug">
+              The simplest way to manage your team in India.
+            </h2>
+            <p className="mt-3 text-sm text-[#787774] leading-relaxed">
+              Attendance, payroll, leave, and compliance — all in one clean dashboard built for Indian SMBs.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              "7-day free trial, no credit card needed",
+              "Geo-verified selfie check-in",
+              "Automated salary slips with PF & ESIC",
+              "Leave management & approval workflows",
+            ].map((point) => (
+              <div key={point} className="flex items-center gap-2.5 text-sm text-[#37352f]">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#0f7b43] shrink-0" />
+                {point}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-xs text-[#c1c0bb]">© 2026 HRBharat</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-6 border border-slate-200 rounded-3xl shadow-sm sm:px-10">
-          
-          {errorMessage && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl">
-              {errorMessage}
+      {/* ── RIGHT PANEL — form ── */}
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 overflow-y-auto">
+        <div className="w-full max-w-md mx-auto space-y-8">
+
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 mb-2">
+            <div className="w-5 h-5 rounded bg-[#37352f] flex items-center justify-center shrink-0">
+              <span className="text-white text-[8px] font-bold">HB</span>
             </div>
-          )}
+            <span className="font-semibold text-sm text-[#37352f]">HRBharat</span>
+          </div>
 
-          {/* Form tag connects directly to our submission function logic */}
-          <form onSubmit={handleRegisterPipeline} className="space-y-4">
-            <div>
-              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wide block mb-1">Full Identity Name</label>
-              <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Rajesh Kumar" className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 bg-slate-50/50" />
-            </div>
-
-            <div>
-              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wide block mb-1">Email Address</label>
-              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@company.in" className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 bg-slate-50/50" />
-            </div>
-
-            <div>
-              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wide block mb-1">Password</label>
-              <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 bg-slate-50/50" />
-            </div>
-
-            {/* OWNERS SECTION: BUSINESS DETAILS & GEOFENCE COORDINATES */}
-            <div className="border-t border-slate-100 pt-4 space-y-3">
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wide block mb-1">Company / Workspace Name (Owners Only)</label>
-                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g., Monk Digital Media" className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600 bg-slate-50/50" />
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center space-x-1">
-                    <MapPin className="w-3 h-3 text-teal-700" /> <span>Workspace Geofencing</span>
-                  </span>
-                  <button type="button" onClick={handleDetectCurrentLocation} disabled={fetchingGeo} className="text-[10px] font-bold text-teal-700 hover:text-teal-800 flex items-center space-x-1 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-xs cursor-pointer">
-                    <Navigation className={`w-2.5 h-2.5 ${fetchingGeo ? 'animate-spin' : ''}`} />
-                    <span>{fetchingGeo ? 'Detecting...' : 'Detect My Location'}</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[9px] uppercase font-bold text-slate-500 tracking-wide block mb-0.5">Office Latitude</label>
-                    <input type="number" step="any" value={latitude} onChange={e => setLatitude(e.target.value)} placeholder="e.g., 28.6139" className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none bg-white" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] uppercase font-bold text-slate-500 tracking-wide block mb-0.5">Office Longitude</label>
-                    <input type="number" step="any" value={longitude} onChange={e => setLongitude(e.target.value)} placeholder="e.g., 77.2090" className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none bg-white" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[9px] uppercase font-bold text-slate-500 tracking-wide block mb-0.5">Allowed Radius Buffer (Meters)</label>
-                  <input type="number" value={radius} onChange={e => setRadius(e.target.value)} placeholder="100" className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none bg-white" />
-                </div>
-              </div>
-              <p className="text-[9px] text-slate-400 font-medium leading-normal">
-                Employees: You can ignore the company/location boxes. Your account auto-links to your organization profile based on your corporate email routing setup.
-              </p>
-            </div>
-
-            <button type="submit" disabled={submitting} className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm mt-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none">
-              {submitting ? 'Constructing Secure Space Node...' : 'Register Profile'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-xs font-medium text-slate-500">
-              Already have an account?{' '}
-              <Link href="/login" className="font-bold text-teal-700 hover:underline">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
+            <p className="mt-1 text-sm text-[#9b9a97]">
+              Already have one?{' '}
+              <Link href="/login" className="text-[#37352f] font-medium underline underline-offset-2 hover:no-underline">
                 Sign in
               </Link>
             </p>
           </div>
+
+          {/* Error */}
+          {errorMessage && (
+            <div className="text-sm px-4 py-2.5 rounded-md border bg-[#fdecea] border-[#f5c0bb] text-[#d44c47]">
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Personal details */}
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Full Name</label>
+                <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Rajesh Kumar" className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Work Email</label>
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="rajesh@company.in" className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Password</label>
+                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" className={inputClass} />
+              </div>
+            </div>
+
+            <hr className="border-[#e9e9e7]" />
+
+            {/* Company section */}
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>
+                  Company Name
+                  <span className="ml-1.5 text-[#c1c0bb] font-normal">(skip if you're an employee)</span>
+                </label>
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Monk Digital Media" className={inputClass} />
+              </div>
+
+              {/* Geofence block */}
+              <div className="rounded-md border border-[#e9e9e7] bg-[#f7f6f3] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-[#9b9a97] uppercase tracking-widest flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Office Location
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDetectCurrentLocation}
+                    disabled={fetchingGeo}
+                    className="flex items-center gap-1.5 text-xs text-[#787774] hover:text-[#37352f] border border-[#e9e9e7] bg-white px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-40"
+                  >
+                    <Navigation className={`w-3 h-3 ${fetchingGeo ? 'animate-spin' : ''}`} />
+                    {fetchingGeo ? 'Detecting…' : 'Detect my location'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Latitude</label>
+                    <input type="number" step="any" value={latitude} onChange={e => setLatitude(e.target.value)} placeholder="28.6139" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Longitude</label>
+                    <input type="number" step="any" value={longitude} onChange={e => setLongitude(e.target.value)} placeholder="77.2090" className={inputClass} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Geofence Radius (meters)</label>
+                  <input type="number" value={radius} onChange={e => setRadius(e.target.value)} placeholder="100" className={inputClass} />
+                </div>
+              </div>
+
+              <p className="text-xs text-[#9b9a97] leading-relaxed">
+                If you're an employee, leave the company fields blank. Your account will auto-link based on your email.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-md bg-[#37352f] text-white hover:bg-[#2d2c28] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Creating account…</>
+              ) : (
+                <>Create account <ChevronRight className="w-4 h-4" /></>
+              )}
+            </button>
+
+          </form>
+
+          <p className="text-xs text-center text-[#c1c0bb]">
+            By creating an account you agree to our{' '}
+            <Link href="/terms" className="underline hover:text-[#787774]">Terms</Link>
+            {' '}and{' '}
+            <Link href="/privacy" className="underline hover:text-[#787774]">Privacy Policy</Link>
+          </p>
+
         </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams needs Suspense boundary in Next.js App Router
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

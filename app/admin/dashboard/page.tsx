@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { usePlan } from '@/lib/usePlan';
+import PlanGate from '@/components/PlanGate';
 import {
   Users,
   IndianRupee,
@@ -91,6 +93,7 @@ function SectionHeader({ icon, title, count, href }: { icon: React.ReactNode; ti
 ───────────────────────────────────────────── */
 export default function AdminClientDashboard() {
   const router = useRouter();
+  const { features } = usePlan();
 
   const [profile, setProfile] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
@@ -118,9 +121,26 @@ export default function AdminClientDashboard() {
 
       if (!prof.company_id) { setDisconnectNode(true); setLoading(false); return; }
 
+      // Check if owner or sub-admin
+      const { data: empCheck } = await supabase
+        .from('employees')
+        .select('id, manager_id')
+        .eq('auth_user_id', user.id)
+        .single();
+      const isOwner = !empCheck;
+
+      const employeesQuery = supabase
+        .from('employees')
+        .select('*')
+        .eq('company_id', prof.company_id);
+
+      if (!isOwner) {
+        employeesQuery.eq('manager_id', prof.id);
+      }
+
       const [companyRes, employeesRes, leavesRes, advancesRes, logsRes] = await Promise.all([
         supabase.from('companies').select('*').eq('id', prof.company_id).single(),
-        supabase.from('employees').select('*').eq('company_id', prof.company_id),
+        employeesQuery,
         supabase.from('leave_requests').select('*').eq('company_id', prof.company_id).eq('status', 'Pending'),
         supabase.from('advance_salary_requests').select('*').eq('company_id', prof.company_id).eq('status', 'Pending'),
         supabase.from('daily_tasks').select('*').eq('company_id', prof.company_id).order('created_at', { ascending: false }),
@@ -251,13 +271,13 @@ export default function AdminClientDashboard() {
               accent: pendingLeaves.length > 0 ? 'text-amber-600' : 'text-neutral-400',
               urgent: pendingLeaves.length > 0,
             },
-            {
+            ...(features.advanceSalary ? [{
               label: 'Advance Requests',
               value: `₹${totalAdvanceClaims.toLocaleString('en-IN')}`,
               sub: `${pendingAdvances.length} pending claims`,
               icon: <Banknote className="w-3.5 h-3.5" />,
               accent: pendingAdvances.length > 0 ? 'text-rose-500' : 'text-neutral-400',
-            },
+            }] : []),
           ].map((m) => (
             <div key={m.label} className="bg-[#FDF8F0] px-5 py-5 flex flex-col gap-2">
               <div className={`${m.accent} flex items-center gap-1.5 font-sans`}>
@@ -339,6 +359,7 @@ export default function AdminClientDashboard() {
             </div>
 
             {/* Advance Salary */}
+            <PlanGate feature="advanceSalary">
             <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
               <SectionHeader
                 icon={<Circle className="w-3 h-3 fill-rose-400 text-rose-400" />}
@@ -391,8 +412,10 @@ export default function AdminClientDashboard() {
                 </div>
               )}
             </div>
+            </PlanGate>
 
             {/* EOD Logs */}
+            <PlanGate feature="eodReports">
             <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
               <SectionHeader
                 icon={<ClipboardList className="w-3.5 h-3.5 text-neutral-400" />}
@@ -438,6 +461,7 @@ export default function AdminClientDashboard() {
                 </div>
               )}
             </div>
+            </PlanGate>
           </div>
 
           {/* ── RIGHT: Roster + Geofence ── */}
@@ -494,6 +518,7 @@ export default function AdminClientDashboard() {
             </div>
 
             {/* Geofence */}
+            <PlanGate feature="customGeofence">
             <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
               <SectionHeader
                 icon={<MapPin className="w-3.5 h-3.5 text-neutral-400" />}
@@ -518,6 +543,7 @@ export default function AdminClientDashboard() {
                 </div>
               </div>
             </div>
+            </PlanGate>
 
           </div>
         </div>
