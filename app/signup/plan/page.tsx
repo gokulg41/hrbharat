@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { CASHFREE_MODE } from "@/lib/config";
 import { CheckCircle2, Loader2, ShieldCheck, Zap, X } from "lucide-react";
 
 const tiers = [
@@ -120,7 +121,7 @@ function PlanSelectionForm() {
 
       const { load } = await import("@cashfreepayments/cashfree-js");
       const cashfree = await load({
-        mode: (process.env.NEXT_PUBLIC_CASHFREE_MODE as "sandbox" | "production") || "sandbox",
+  mode: CASHFREE_MODE,
       });
 
       cashfree.checkout({
