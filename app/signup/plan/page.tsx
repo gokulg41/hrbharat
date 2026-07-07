@@ -115,6 +115,7 @@ function PlanSelectionForm() {
       });
 
       const data = await res.json();
+      console.log("API response:", data);
       if (!res.ok) throw new Error(data.error || "Failed to create order");
 
       const { load } = await import("@cashfreepayments/cashfree-js");
