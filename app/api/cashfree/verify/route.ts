@@ -10,7 +10,7 @@ const supabase = createClient(
 );
 
 const CASHFREE_BASE =
-  process.env.NEXT_PUBLIC_CASHFREE_MODE === "production"
+  process.env.CASHFREE_MODE === "production"
     ? "https://api.cashfree.com/pg"
     : "https://sandbox.cashfree.com/pg";
 
