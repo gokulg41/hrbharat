@@ -2,7 +2,7 @@ import "./globals.css";
 import "./theme.css";
 
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import Footer from "@/components/Footer";
+import Footer from "@/components/footer";
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
