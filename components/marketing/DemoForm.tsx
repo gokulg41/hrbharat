@@ -88,18 +88,21 @@ export default function DemoForm() {
       className="rounded-2xl border border-[#E6E8EC] bg-white p-8 space-y-5"
       noValidate
     >
-      {/* Honeypot: visually hidden, never shown to real users, ignored by
-          screen readers. Bots that auto-fill every field will fill this
-          and get silently rejected server-side. */}
+      {/* Honeypot: never shown to real users. `inert` makes it fully
+          unreachable by keyboard, screen readers, and browser
+          autofill — not just visually hidden — which avoids it
+          stealing focus from the real fields. Bots that auto-fill
+          every field will fill this and get silently rejected
+          server-side. */}
       <div
-        aria-hidden="true"
+        inert
         style={{
           position: "absolute",
           width: 1,
           height: 1,
           overflow: "hidden",
-          clip: "rect(0,0,0,0)",
-          whiteSpace: "nowrap",
+          left: -9999,
+          top: -9999,
         }}
       >
         <label htmlFor="companyWebsite">Leave this field empty</label>
