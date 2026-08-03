@@ -1,0 +1,72 @@
+/* HRBharat Marketing Site — scoped design tokens.
+   Wrapped under .mkt so nothing here leaks into the dashboard/app theme. */
+
+.mkt {
+  --mkt-canvas: #fafaf8;
+  --mkt-canvas-raised: #ffffff;
+  --mkt-canvas-alt: #f1f2ee;
+  --mkt-navy: #0b1d33;
+  --mkt-navy-soft: #16304f;
+  --mkt-navy-deep: #071527;
+  --mkt-teal: #0d6e62;
+  --mkt-teal-light: #7fc9bb;
+  --mkt-teal-soft: #e3f1ec;
+  --mkt-text: #14202b;
+  --mkt-muted: #5c6773;
+  --mkt-border: #e4e7e1;
+  --mkt-border-strong: #d7dbd2;
+
+  background-color: var(--mkt-canvas);
+  color: var(--mkt-text);
+}
+
+.mkt .mkt-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mkt-teal);
+}
+
+.mkt .mkt-card {
+  background-color: var(--mkt-canvas-raised);
+  border: 1px solid var(--mkt-border);
+  box-shadow: 0 1px 2px rgba(11, 29, 51, 0.04);
+}
+
+.mkt .mkt-console {
+  background-color: var(--mkt-navy);
+  border: 1px solid rgba(240, 242, 245, 0.08);
+  color: #e8ecf0;
+}
+
+.mkt .mkt-console-mono {
+  font-family: var(--font-mono);
+}
+
+@keyframes mkt-scan {
+  0% { transform: translateY(-100%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(420%); opacity: 0; }
+}
+
+.mkt .mkt-scanline {
+  animation: mkt-scan 5s ease-in-out infinite;
+}
+
+@keyframes mkt-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mkt .mkt-fade-up {
+  animation: mkt-fade-up 0.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mkt .mkt-scanline,
+  .mkt .mkt-fade-up {
+    animation: none !important;
+  }
+}
