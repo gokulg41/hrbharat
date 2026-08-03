@@ -44,14 +44,14 @@ export default function MarketingFooter() {
                 aria-label="HRBharat on LinkedIn"
                 className="w-8 h-8 rounded-full bg-[#F4F5F7] flex items-center justify-center text-[#5B6472] hover:text-[#10131A] transition-colors"
               >
-                <Linkedin size={14} />
+                <FaLinkedin size={14} />
               </a>
               <a
                 href="#"
                 aria-label="HRBharat on Facebook"
                 className="w-8 h-8 rounded-full bg-[#F4F5F7] flex items-center justify-center text-[#5B6472] hover:text-[#10131A] transition-colors"
               >
-                <Facebook size={14} />
+                <FaFacebook size={14} />
               </a>
             </div>
           </div>
