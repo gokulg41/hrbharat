@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Linkedin, Facebook } from "lucide-react";
+import { FaFacebook, FaLinkedin } from "react-icons/fa";
 
 const columns = [
   {
