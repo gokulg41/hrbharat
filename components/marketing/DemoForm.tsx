@@ -12,10 +12,10 @@ const schema = z.object({
   workEmail: z.string().email("Enter a valid work email"),
   phone: z.string().min(6, "Enter a valid phone number"),
   companySize: z.enum(["1-10", "11-50", "51-200", "200+"], {
-    errorMap: () => ({ message: "Select a company size" }),
+    error: "Select a company size",
   }),
   country: z.enum(["India", "UAE", "Other"], {
-    errorMap: () => ({ message: "Select a country" }),
+    error: "Select a country",
   }),
   message: z.string().optional(),
   // Honeypot — kept empty and hidden from real users via CSS below.
