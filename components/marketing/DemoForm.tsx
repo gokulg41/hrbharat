@@ -11,9 +11,15 @@ const schema = z.object({
   company: z.string().min(2, "Enter your company name"),
   workEmail: z.string().email("Enter a valid work email"),
   phone: z.string().min(6, "Enter a valid phone number"),
-  companySize: z.string().min(1, "Select a company size"),
-  country: z.string().min(1, "Select a country"),
+  companySize: z.enum(["1-10", "11-50", "51-200", "200+"], {
+    errorMap: () => ({ message: "Select a company size" }),
+  }),
+  country: z.enum(["India", "UAE", "Other"], {
+    errorMap: () => ({ message: "Select a country" }),
+  }),
   message: z.string().optional(),
+  // Honeypot — kept empty and hidden from real users via CSS below.
+  companyWebsite: z.string().max(0, "").optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -25,6 +31,7 @@ export default function DemoForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
   );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -34,15 +41,26 @@ export default function DemoForm() {
 
   const onSubmit = async (values: FormValues) => {
     setStatus("submitting");
+    setErrorMessage(null);
     try {
       const res = await fetch("/api/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-      if (!res.ok) throw new Error("Request failed");
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        setErrorMessage(
+          json?.error ?? "Something went wrong. Please try again."
+        );
+        setStatus("error");
+        return;
+      }
       setStatus("success");
     } catch {
+      setErrorMessage(
+        "We couldn't reach the server. Check your connection and try again."
+      );
       setStatus("error");
     }
   };
@@ -70,6 +88,29 @@ export default function DemoForm() {
       className="rounded-2xl border border-[#E6E8EC] bg-white p-8 space-y-5"
       noValidate
     >
+      {/* Honeypot: visually hidden, never shown to real users, ignored by
+          screen readers. Bots that auto-fill every field will fill this
+          and get silently rejected server-side. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          overflow: "hidden",
+          clip: "rect(0,0,0,0)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <label htmlFor="companyWebsite">Leave this field empty</label>
+        <input
+          id="companyWebsite"
+          tabIndex={-1}
+          autoComplete="off"
+          {...register("companyWebsite")}
+        />
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label className="block text-[13px] font-medium text-[#2D3440] mb-1.5">
@@ -169,11 +210,8 @@ export default function DemoForm() {
         />
       </div>
 
-      {status === "error" && (
-        <p className="text-[13px] text-red-600">
-          Something went wrong sending your request. Please try again, or
-          email hello@hrbharat.com directly.
-        </p>
+      {status === "error" && errorMessage && (
+        <p className="text-[13px] text-red-600">{errorMessage}</p>
       )}
 
       <button
