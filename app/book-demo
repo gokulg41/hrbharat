@@ -1,5 +1,0 @@
-book-demo/page.tsx
-
-export default function BookDemo() {
-  return <div>Book a Demo</div>;
-}
