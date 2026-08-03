@@ -1,6 +1,7 @@
 import "./globals.css";
 import "./theme.css";
 
+import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import Footer from "@/components/footer";
 
@@ -18,10 +19,46 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-export const metadata = {
-  title: "HRBharat | Enterprise",
-  description: "Premium HR Management SaaS Platform",
+// TODO: set NEXT_PUBLIC_SITE_URL in your environment (e.g. https://hrbharat.com)
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://hrbharat.com";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "HRBharat — HR & Payroll Software for Growing Businesses",
+    template: "%s | HRBharat",
+  },
+  description:
+    "HRBharat simplifies HR, payroll, attendance and employee management for growing businesses in India and the UAE.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: "HRBharat",
+    title: "HRBharat — HR & Payroll Software for Growing Businesses",
+    description:
+      "HRBharat simplifies HR, payroll, attendance and employee management for growing businesses in India and the UAE.",
+    images: [
+      {
+        // TODO: add a real 1200x630 OG image at public/og-image.png
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "HRBharat — HR & Payroll Software",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HRBharat — HR & Payroll Software for Growing Businesses",
+    description:
+      "HRBharat simplifies HR, payroll, attendance and employee management for growing businesses in India and the UAE.",
+    images: ["/og-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
