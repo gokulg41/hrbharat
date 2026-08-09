@@ -29,6 +29,9 @@ import {
   Loader2,
   Lock,
   UserPlus,
+  Users,
+  CheckCircle2,
+  MoreVertical,
 } from "lucide-react";
 import PlanGate from "@/components/PlanGate";
 import { usePlan } from "@/lib/usePlan";
@@ -110,6 +113,635 @@ interface AdminTabsViewProps {
   startEditing: (emp: any) => void;
   handleUpdateWorkflowStatus: (table: string, id: string, status: string) => void;
   refreshOperationalData: () => Promise<void>;
+  onAddEmployee?: () => void;
+}
+
+// ── Employee data-shape helpers ────────────────────────────────────────────────
+// NOTE (source verification): the `employees` rows are fetched with
+// `select('*, company_shifts(*)')`, so any real column on the table — even one
+// this UI hasn't referenced before — is already present on each `emp` object.
+// No `status` / `employment_type` column has been referenced anywhere else in
+// this codebase, so these two readers are defensive (same fallback pattern the
+// file already uses for `emp.department || 'Operations'`): if the column
+// exists in Supabase, it's honored; if not, everyone safely defaults to
+// Active / Full-time rather than the UI inventing or hiding people.
+function getEmpStatus(emp: any): "active" | "on_leave" | "inactive" {
+  const raw = String(emp?.status || "active").toLowerCase().replace(/\s+/g, "_");
+  if (raw === "on_leave" || raw === "leave" || raw === "onleave") return "on_leave";
+  if (raw === "inactive" || raw === "terminated" || raw === "resigned" || raw === "offboarded") return "inactive";
+  return "active";
+}
+function getEmploymentType(emp: any): string {
+  return emp?.employment_type || "Full-time";
+}
+function initialsFor(name: string) {
+  return (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
+const AVATAR_HUES = [210, 160, 340, 30, 280, 195];
+function hueFor(name: string) {
+  return AVATAR_HUES[(name || "").charCodeAt(0) % AVATAR_HUES.length];
+}
+function formatINR(n: number) {
+  return `₹${(Number(n) || 0).toLocaleString("en-IN")}`;
+}
+function formatJoinDate(d?: string) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+function downloadCSV(rows: any[], filename: string) {
+  const headers = ["Employee ID", "Name", "Department", "Designation", "Status", "Employment Type", "Join Date", "Monthly Salary"];
+  const lines = rows.map((e) => [
+    e.employee_code || "",
+    e.full_name || "",
+    e.department || "Operations",
+    e.designation || "Staff",
+    getEmpStatus(e),
+    getEmploymentType(e),
+    e.joining_date ? new Date(e.joining_date).toISOString().split("T")[0] : "",
+    Number(e.monthly_salary) || 0,
+  ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
+  const csv = [headers.join(","), ...lines].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function StatusPillEmp({ status }: { status: "active" | "on_leave" | "inactive" }) {
+  const map = {
+    active: "bg-status-success-bg text-status-success",
+    on_leave: "bg-status-warning-bg text-status-warning",
+    inactive: "bg-surface-card-hover text-ink-400",
+  } as const;
+  const label = { active: "Active", on_leave: "On Leave", inactive: "Inactive" }[status];
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[status]}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {label}
+    </span>
+  );
+}
+
+function EmpMetricCard({
+  icon, iconBg, iconColor, label, value, sub, subColor = "text-ink-400",
+}: { icon: React.ReactNode; iconBg: string; iconColor: string; label: string; value: string; sub: string; subColor?: string }) {
+  return (
+    <div className="bg-surface-card border border-border-subtle rounded-xl px-4 py-3.5">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mb-2.5 ${iconBg} ${iconColor}`}>
+        {icon}
+      </div>
+      <span className="text-[9px] font-sans font-semibold uppercase tracking-widest text-ink-400 block mb-0.5">{label}</span>
+      <span className="text-xl font-bold text-ink-900 font-sans tabular-nums leading-none block">{value}</span>
+      <span className={`text-[10px] font-sans block mt-1 ${subColor}`}>{sub}</span>
+    </div>
+  );
+}
+
+function EmployeesRosterView({
+  employees,
+  searchQuery,
+  setSearchQuery,
+  startEditing,
+  onAddEmployee,
+}: {
+  employees: any[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  startEditing: (emp: any) => void;
+  onAddEmployee?: () => void;
+}) {
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "on_leave" | "inactive">("all");
+  const [deptFilter, setDeptFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [quickFilter, setQuickFilter] = useState<null | "recent" | "anniversary">(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [openMenu, setOpenMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const [viewingEmployee, setViewingEmployee] = useState<any | null>(null);
+  const [deptExpanded, setDeptExpanded] = useState(false);
+
+  const total = employees.length;
+  const now = new Date();
+
+  const statusCounts = React.useMemo(() => {
+    const c = { active: 0, on_leave: 0, inactive: 0 };
+    employees.forEach((e) => { c[getEmpStatus(e)]++; });
+    return c;
+  }, [employees]);
+
+  const deptCounts = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    employees.forEach((e) => { const d = e.department || "Operations"; map[d] = (map[d] || 0) + 1; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [employees]);
+
+  const allDepts = React.useMemo(() => deptCounts.map(([d]) => d), [deptCounts]);
+  const allTypes = React.useMemo(() => Array.from(new Set(employees.map((e) => getEmploymentType(e)))).sort(), [employees]);
+
+  const newHiresThisMonth = React.useMemo(() => employees.filter((e) => {
+    const d = e.joining_date ? new Date(e.joining_date) : null;
+    return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length, [employees]);
+
+  const newHiresLastMonth = React.useMemo(() => {
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return employees.filter((e) => {
+      const d = e.joining_date ? new Date(e.joining_date) : null;
+      return d && d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+    }).length;
+  }, [employees]);
+
+  const recentJoiners = React.useMemo(() => employees.filter((e) => {
+    if (!e.joining_date) return false;
+    const diffDays = (now.getTime() - new Date(e.joining_date).getTime()) / 86400000;
+    return diffDays >= 0 && diffDays <= 30;
+  }), [employees]);
+
+  const workAnniversaries = React.useMemo(() => employees.filter((e) => {
+    if (!e.joining_date) return false;
+    const d = new Date(e.joining_date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() < now.getFullYear();
+  }), [employees]);
+
+  const filtered = React.useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return employees.filter((e) => {
+      if (q && !`${e.full_name} ${e.employee_code} ${e.department} ${e.designation} ${e.phone || ""}`.toLowerCase().includes(q)) return false;
+      if (statusFilter !== "all" && getEmpStatus(e) !== statusFilter) return false;
+      if (deptFilter !== "all" && (e.department || "Operations") !== deptFilter) return false;
+      if (typeFilter !== "all" && getEmploymentType(e) !== typeFilter) return false;
+      if (quickFilter === "recent" && !recentJoiners.includes(e)) return false;
+      if (quickFilter === "anniversary" && !workAnniversaries.includes(e)) return false;
+      return true;
+    });
+  }, [employees, searchQuery, statusFilter, deptFilter, typeFilter, quickFilter, recentJoiners, workAnniversaries]);
+
+  React.useEffect(() => { setPage(1); }, [searchQuery, statusFilter, deptFilter, typeFilter, quickFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageSafe = Math.min(page, totalPages);
+  const paginated = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
+
+  const allOnPageSelected = paginated.length > 0 && paginated.every((e) => selected.has(e.id));
+  const toggleSelectAllOnPage = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) paginated.forEach((e) => next.delete(e.id));
+      else paginated.forEach((e) => next.add(e.id));
+      return next;
+    });
+  };
+  const toggleSelectOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const donutDeg = React.useMemo(() => {
+    if (total === 0) return { active: 0, onLeave: 0 };
+    const activeDeg = (statusCounts.active / total) * 360;
+    const leaveDeg = (statusCounts.on_leave / total) * 360;
+    return { active: activeDeg, onLeave: leaveDeg };
+  }, [statusCounts, total]);
+
+  const maxDeptCount = deptCounts.length > 0 ? deptCounts[0][1] : 1;
+  const visibleDepts = deptExpanded ? deptCounts : deptCounts.slice(0, 6);
+
+  const statusTabs: { id: "all" | "active" | "on_leave" | "inactive"; label: string; count: number }[] = [
+    { id: "all", label: "All Employees", count: total },
+    { id: "active", label: "Active", count: statusCounts.active },
+    { id: "on_leave", label: "On Leave", count: statusCounts.on_leave },
+    { id: "inactive", label: "Inactive", count: statusCounts.inactive },
+  ];
+
+  // ── Zero-state: no employees onboarded at all ──
+  if (total === 0) {
+    return (
+      <div className="p-4 md:p-6 space-y-5">
+        <div>
+          <h2 className="text-xl font-bold text-ink-900 font-sans">Employees</h2>
+          <p className="text-xs text-ink-600 font-sans mt-0.5">Manage your organization&apos;s employees and their information.</p>
+        </div>
+        <div className="bg-surface-card border border-border-subtle rounded-xl flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
+          <div className="w-14 h-14 rounded-full bg-brand-subtle flex items-center justify-center">
+            <Users className="w-6 h-6 text-brand" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink-900 font-sans">No employees yet</p>
+            <p className="text-xs text-ink-400 font-sans max-w-xs">Start building your workforce by adding your first employee.</p>
+          </div>
+          <button
+            onClick={onAddEmployee}
+            className="flex items-center gap-1.5 bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold px-4 py-2.5 rounded-lg transition-colors cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Add Employee
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-6 space-y-5">
+      {/* Page title */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-ink-900 font-sans">Employees</h2>
+          <p className="text-xs text-ink-600 font-sans mt-0.5">Manage your organization&apos;s employees and their information.</p>
+        </div>
+        <button
+          onClick={onAddEmployee}
+          className="flex items-center gap-1.5 bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold px-4 py-2.5 rounded-lg transition-colors cursor-pointer shrink-0"
+        >
+          <UserPlus className="w-3.5 h-3.5" /> Add Employee
+        </button>
+      </div>
+
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <EmpMetricCard
+          icon={<Users className="w-4 h-4" />} iconBg="bg-brand-subtle" iconColor="text-brand"
+          label="Total Employees" value={String(total)}
+          sub={newHiresThisMonth > 0 ? `+${newHiresThisMonth} this month` : "On the roster"}
+          subColor={newHiresThisMonth > 0 ? "text-status-success" : "text-ink-400"}
+        />
+        <EmpMetricCard
+          icon={<CheckCircle2 className="w-4 h-4" />} iconBg="bg-status-success-bg" iconColor="text-status-success"
+          label="Active Employees" value={String(statusCounts.active)}
+          sub={`${total > 0 ? Math.round((statusCounts.active / total) * 100) : 0}% of total`}
+        />
+        <EmpMetricCard
+          icon={<Calendar className="w-4 h-4" />} iconBg="bg-status-warning-bg" iconColor="text-status-warning"
+          label="On Leave" value={String(statusCounts.on_leave)}
+          sub="Today"
+        />
+        <EmpMetricCard
+          icon={<Building2 className="w-4 h-4" />} iconBg="bg-brand-subtle" iconColor="text-brand"
+          label="Departments" value={String(allDepts.length)}
+          sub="Across organization"
+        />
+        <EmpMetricCard
+          icon={<UserPlus className="w-4 h-4" />} iconBg="bg-status-success-bg" iconColor="text-status-success"
+          label="New Hires" value={String(newHiresThisMonth)}
+          sub={newHiresThisMonth >= newHiresLastMonth ? `↑ vs last month (${newHiresLastMonth})` : `↓ vs last month (${newHiresLastMonth})`}
+          subColor={newHiresThisMonth >= newHiresLastMonth ? "text-status-success" : "text-ink-400"}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5 items-start">
+        {/* ── Left: filters + tabs + table ── */}
+        <div className="space-y-4 min-w-0">
+          {/* Search + filters */}
+          <div className="bg-surface-card border border-border-subtle rounded-xl p-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, email, ID or phone…"
+                className="w-full pl-9 pr-3 py-2 text-xs font-sans text-ink-900 bg-surface-card border border-border-subtle rounded-lg focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="text-xs font-sans text-ink-900 bg-surface-card border border-border-subtle rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+                <option value="all">All Departments</option>
+                {allDepts.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="text-xs font-sans text-ink-900 bg-surface-card border border-border-subtle rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+                <option value="all">All Types</option>
+                {allTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="text-xs font-sans text-ink-900 bg-surface-card border border-border-subtle rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="on_leave">On Leave</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <div className="flex-1" />
+              <button
+                onClick={() => downloadCSV(filtered, `employees-${new Date().toISOString().split("T")[0]}.csv`)}
+                className="flex items-center gap-1.5 text-xs font-sans font-medium text-ink-600 bg-surface-card border border-border-subtle rounded-lg px-3 py-1.5 hover:bg-surface-card-hover transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" /> Export
+              </button>
+              <button
+                disabled
+                title="More filters coming soon"
+                className="flex items-center gap-1.5 text-xs font-sans font-medium text-ink-400 bg-surface-card border border-border-subtle rounded-lg px-3 py-1.5 opacity-60 cursor-not-allowed"
+              >
+                <Filter className="w-3.5 h-3.5" /> More Filters
+              </button>
+            </div>
+            {selected.size > 0 && (
+              <div className="flex items-center justify-between bg-brand-subtle border border-border-subtle rounded-lg px-3 py-2">
+                <span className="text-[11px] font-sans font-medium text-brand">{selected.size} selected</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => downloadCSV(employees.filter((e) => selected.has(e.id)), `employees-selected-${new Date().toISOString().split("T")[0]}.csv`)}
+                    className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer"
+                  >
+                    Export selected
+                  </button>
+                  <button onClick={() => setSelected(new Set())} className="p-0.5 rounded hover:bg-black/5 cursor-pointer">
+                    <X className="w-3 h-3 text-brand" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Status tabs */}
+          <div className="flex items-center gap-1 bg-surface-card-hover p-1 rounded-lg border border-border-subtle w-fit max-w-full overflow-x-auto">
+            {statusTabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setStatusFilter(t.id)}
+                className={`text-[11px] font-sans font-medium px-3 py-1.5 rounded-md cursor-pointer transition-all whitespace-nowrap ${
+                  statusFilter === t.id ? "bg-surface-card text-ink-900 border border-border-subtle shadow-sm" : "text-ink-600 hover:text-ink-900"
+                }`}
+              >
+                {t.label} <span className="text-ink-400">({t.count})</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Table */}
+          <div className="bg-surface-card border border-border-subtle rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-surface-canvas border-b border-border-subtle">
+                  <tr>
+                    <th className="px-4 py-2.5 w-8">
+                      <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAllOnPage} className="cursor-pointer" />
+                    </th>
+                    <th className="text-left px-2 py-2.5 font-medium text-ink-400">Employee</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee ID</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-ink-400">Department</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-ink-400">Designation</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-ink-400">Status</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-ink-400">Join Date</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-ink-400">Salary</th>
+                    <th className="text-right px-4 py-2.5 font-medium text-ink-400">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {paginated.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-0">
+                        <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
+                          <div className="w-11 h-11 rounded-full bg-brand-subtle flex items-center justify-center">
+                            <Search className="w-5 h-5 text-brand" />
+                          </div>
+                          <p className="text-sm font-semibold text-ink-900">No matching employees</p>
+                          <p className="text-xs text-ink-400 max-w-xs">Try a different name, code, department, or clear your filters.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginated.map((emp) => {
+                    const status = getEmpStatus(emp);
+                    return (
+                      <tr key={emp.id} className="hover:bg-surface-card-hover">
+                        <td className="px-4 py-3">
+                          <input type="checkbox" checked={selected.has(emp.id)} onChange={() => toggleSelectOne(emp.id)} className="cursor-pointer" />
+                        </td>
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[10px] font-semibold shrink-0"
+                              style={{ background: `hsl(${hueFor(emp.full_name)} 55% 88%)`, color: `hsl(${hueFor(emp.full_name)} 50% 35%)` }}
+                            >
+                              {initialsFor(emp.full_name)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-medium text-ink-900 truncate">{emp.full_name}</p>
+                              <p className="text-ink-400 truncate">{emp.email || `${(emp.full_name || "").toLowerCase().replace(/\s+/g, ".")}@${(emp.employee_code || "hrbharat").toLowerCase()}`}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-ink-600 font-mono">{emp.employee_code || "—"}</td>
+                        <td className="px-4 py-3 text-ink-600">{emp.department || "Operations"}</td>
+                        <td className="px-4 py-3 text-ink-600">{emp.designation || "Staff"}</td>
+                        <td className="px-4 py-3"><StatusPillEmp status={status} /></td>
+                        <td className="px-4 py-3 text-ink-600">{formatJoinDate(emp.joining_date)}</td>
+                        <td className="px-4 py-3 text-ink-900 font-medium">{formatINR(emp.monthly_salary)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end">
+                            <button
+                              onClick={(e) => {
+                                const r = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                setOpenMenu(openMenu?.id === emp.id ? null : { id: emp.id, top: r.bottom + 4, left: r.right - 128 });
+                              }}
+                              className="p-1 rounded hover:bg-surface-card-hover text-ink-400 hover:text-ink-900 cursor-pointer"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Pagination */}
+            {filtered.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-border-subtle">
+                <span className="text-[11px] text-ink-400 font-sans">
+                  Showing {(pageSafe - 1) * pageSize + 1} to {Math.min(pageSafe * pageSize, filtered.length)} of {filtered.length} employees
+                </span>
+                <div className="flex items-center gap-2">
+                  <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="text-[11px] font-sans text-ink-900 bg-surface-card border border-border-subtle rounded-lg px-2 py-1 cursor-pointer">
+                    <option value={10}>10 per page</option>
+                    <option value={25}>25 per page</option>
+                    <option value={50}>50 per page</option>
+                  </select>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={pageSafe === 1}
+                    className="p-1.5 rounded-lg border border-border-subtle text-ink-600 hover:bg-surface-card-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[11px] font-sans text-ink-600 px-1">{pageSafe} / {totalPages}</span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={pageSafe === totalPages}
+                    className="p-1.5 rounded-lg border border-border-subtle text-ink-600 hover:bg-surface-card-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right sidebar ── */}
+        <div className="space-y-4">
+          {/* Employee overview donut */}
+          <div className="bg-surface-card border border-border-subtle rounded-xl p-4">
+            <h3 className="text-xs font-semibold text-ink-900 font-sans mb-4">Employee Overview</h3>
+            <div className="relative w-[136px] h-[136px] mx-auto rounded-full mb-4" style={{
+              background: `conic-gradient(var(--status-success) 0deg ${donutDeg.active}deg, var(--status-warning) ${donutDeg.active}deg ${donutDeg.active + donutDeg.onLeave}deg, var(--border-subtle) ${donutDeg.active + donutDeg.onLeave}deg 360deg)`,
+            }}>
+              <div className="absolute inset-[14px] rounded-full bg-surface-card flex flex-col items-center justify-center">
+                <span className="text-xl font-bold text-ink-900 font-sans">{total}</span>
+                <span className="text-[9px] text-ink-400 font-sans">Total</span>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {[
+                { label: "Active", count: statusCounts.active, color: "var(--status-success)" },
+                { label: "On Leave", count: statusCounts.on_leave, color: "var(--status-warning)" },
+                { label: "Inactive", count: statusCounts.inactive, color: "var(--border-hover)" },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center justify-between text-[11px] font-sans">
+                  <span className="flex items-center gap-2 text-ink-600">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+                    {s.label}
+                  </span>
+                  <span className="text-ink-900 font-semibold tabular-nums">
+                    {s.count} <span className="text-ink-400 font-normal">({total > 0 ? Math.round((s.count / total) * 100) : 0}%)</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick filters — only ones supported by the current data model
+              (no probation flag or DOB field exists on employees yet) */}
+          <div className="bg-surface-card border border-border-subtle rounded-xl p-4">
+            <h3 className="text-xs font-semibold text-ink-900 font-sans mb-3">Quick Filters</h3>
+            <div className="space-y-1">
+              <button
+                onClick={() => setQuickFilter(quickFilter === "recent" ? null : "recent")}
+                className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[11px] font-sans transition-colors cursor-pointer ${quickFilter === "recent" ? "bg-brand-subtle text-brand font-semibold" : "text-ink-600 hover:bg-surface-card-hover"}`}
+              >
+                <span className="flex items-center gap-2"><UserPlus className="w-3.5 h-3.5" /> Recent Joiners</span>
+                <span className="font-semibold">{recentJoiners.length}</span>
+              </button>
+              <button
+                onClick={() => setQuickFilter(quickFilter === "anniversary" ? null : "anniversary")}
+                className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[11px] font-sans transition-colors cursor-pointer ${quickFilter === "anniversary" ? "bg-brand-subtle text-brand font-semibold" : "text-ink-600 hover:bg-surface-card-hover"}`}
+              >
+                <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" /> Work Anniversary</span>
+                <span className="font-semibold">{workAnniversaries.length}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Department wise */}
+          <div className="bg-surface-card border border-border-subtle rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-ink-900 font-sans">Department Wise</h3>
+              {deptCounts.length > 6 && (
+                <button onClick={() => setDeptExpanded((v) => !v)} className="text-[10px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
+                  {deptExpanded ? "Show less" : "View all"}
+                </button>
+              )}
+            </div>
+            <div className="space-y-2.5">
+              {visibleDepts.map(([dept, count]) => (
+                <div key={dept}>
+                  <div className="flex items-center justify-between text-[11px] font-sans mb-1">
+                    <span className="text-ink-600 truncate">{dept}</span>
+                    <span className="text-ink-900 font-semibold tabular-nums">{count}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-canvas rounded-full overflow-hidden">
+                    <div className="h-full bg-brand rounded-full" style={{ width: `${Math.max(6, (count / maxDeptCount) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row action menu — rendered fixed-position (not nested in the scrollable
+          table) so it can never be clipped by an ancestor's overflow rules. */}
+      {openMenu && (() => {
+        const emp = employees.find((e) => e.id === openMenu.id);
+        if (!emp) return null;
+        return (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(null)} />
+            <div
+              className="fixed z-50 w-32 bg-surface-card border border-border-subtle rounded-lg shadow-card overflow-hidden"
+              style={{ top: openMenu.top, left: Math.max(8, openMenu.left) }}
+            >
+              <button
+                onClick={() => { setViewingEmployee(emp); setOpenMenu(null); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-sans text-ink-900 hover:bg-surface-card-hover cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" /> View
+              </button>
+              <button
+                onClick={() => { startEditing(emp); setOpenMenu(null); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-sans text-ink-900 hover:bg-surface-card-hover cursor-pointer"
+              >
+                <Edit className="w-3.5 h-3.5" /> Edit
+              </button>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* View employee modal — read-only, existing data only */}
+      {viewingEmployee && (
+        <div className="fixed inset-0 z-50 bg-brand/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewingEmployee(null)}>
+          <div className="bg-surface-card border border-border-subtle rounded-xl shadow-card w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-ink-900 font-sans">Employee Details</h3>
+              <button onClick={() => setViewingEmployee(null)} className="p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-surface-card-hover cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="border-t border-border-subtle" />
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <span
+                  className="inline-flex items-center justify-center w-11 h-11 rounded-full text-xs font-semibold shrink-0"
+                  style={{ background: `hsl(${hueFor(viewingEmployee.full_name)} 55% 88%)`, color: `hsl(${hueFor(viewingEmployee.full_name)} 50% 35%)` }}
+                >
+                  {initialsFor(viewingEmployee.full_name)}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-ink-900 font-sans">{viewingEmployee.full_name}</p>
+                  <p className="text-[11px] text-ink-400 font-sans font-mono">{viewingEmployee.employee_code}</p>
+                </div>
+                <span className="ml-auto"><StatusPillEmp status={getEmpStatus(viewingEmployee)} /></span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs font-sans pt-1">
+                <div><p className="text-ink-400 mb-0.5">Department</p><p className="text-ink-900 font-medium">{viewingEmployee.department || "Operations"}</p></div>
+                <div><p className="text-ink-400 mb-0.5">Designation</p><p className="text-ink-900 font-medium">{viewingEmployee.designation || "Staff"}</p></div>
+                <div><p className="text-ink-400 mb-0.5">Join Date</p><p className="text-ink-900 font-medium">{formatJoinDate(viewingEmployee.joining_date)}</p></div>
+                <div><p className="text-ink-400 mb-0.5">Monthly Salary</p><p className="text-ink-900 font-medium">{formatINR(viewingEmployee.monthly_salary)}</p></div>
+                <div><p className="text-ink-400 mb-0.5">Bank Account</p><p className="text-ink-900 font-medium font-mono">{viewingEmployee.bank_account_number || "—"}</p></div>
+                <div><p className="text-ink-400 mb-0.5">IFSC</p><p className="text-ink-900 font-medium font-mono">{viewingEmployee.ifsc_code || "—"}</p></div>
+                {viewingEmployee.company_shifts && (
+                  <div className="col-span-2"><p className="text-ink-400 mb-0.5">Shift</p><p className="text-ink-900 font-medium">{viewingEmployee.company_shifts.shift_name}</p></div>
+                )}
+              </div>
+              <button
+                onClick={() => { startEditing(viewingEmployee); setViewingEmployee(null); }}
+                className="w-full flex items-center justify-center gap-1.5 bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer mt-1"
+              >
+                <Edit className="w-3.5 h-3.5" /> Edit Employee
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── AdminTabsView — default export consumed by app/admin/page.tsx ─────────────
@@ -127,6 +759,7 @@ export default function AdminTabsView({
   startEditing,
   handleUpdateWorkflowStatus,
   refreshOperationalData,
+  onAddEmployee,
 }: AdminTabsViewProps) {
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
@@ -153,88 +786,19 @@ export default function AdminTabsView({
     await refreshOperationalData();
   }
 
-  // ── Roster tab ───────────────────────────────────────────────────────────────
+  // ── Roster / Employees tab ─────────────────────────────────────────────────
   if (activeTab === "roster") {
-    const filtered = employees.filter((e) =>
-      `${e.full_name} ${e.employee_code} ${e.department} ${e.designation}`
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-    );
     return (
-      <div className="space-y-4 p-4">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search employees…"
-            className="w-full pl-8 pr-3 py-1.5 text-xs border border-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
-          />
-        </div>
-        <div className="border border-border-subtle rounded-lg overflow-hidden">
-          <table className="w-full text-xs">
-            <thead className="bg-surface-canvas border-b border-border-subtle">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Department</th>
-                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Salary</th>
-                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Joined</th>
-                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-0">
-                    <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
-                      <div className="w-11 h-11 rounded-full bg-brand-subtle flex items-center justify-center">
-                        <UserPlus className="w-5 h-5 text-brand" />
-                      </div>
-                      {searchQuery ? (
-                        <>
-                          <p className="text-sm font-semibold text-ink-900">No matches for "{searchQuery}"</p>
-                          <p className="text-xs text-ink-400 max-w-xs">Try a different name, code, or department.</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm font-semibold text-ink-900">Add your first employee</p>
-                          <p className="text-xs text-ink-400 max-w-xs">Your roster, payroll, and attendance will show up here once you onboard someone.</p>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : filtered.map((emp) => (
-                <tr key={emp.id} className="hover:bg-surface-card-hover">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-ink-900">{emp.full_name}</p>
-                    <p className="text-ink-400">{emp.employee_code}</p>
-                  </td>
-                  <td className="px-4 py-3 text-ink-600">
-                    <p>{emp.department || "—"}</p>
-                    <p className="text-ink-400">{emp.designation || "—"}</p>
-                  </td>
-                  <td className="px-4 py-3 text-ink-900 font-medium">
-                    ₹{Number(emp.monthly_salary || 0).toLocaleString("en-IN")}
-                  </td>
-                  <td className="px-4 py-3 text-ink-600">
-                    {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString("en-IN") : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => startEditing(emp)}
-                      className="p-1 rounded hover:bg-surface-card-hover text-ink-400 hover:text-ink-900"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <>
+        <EmployeesRosterView
+          employees={employees}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          startEditing={startEditing}
+          onAddEmployee={onAddEmployee}
+        />
         {toast && <Toast msg={toast.msg} type={toast.type} />}
-      </div>
+      </>
     );
   }
 

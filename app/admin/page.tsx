@@ -472,7 +472,15 @@ export default function PremiumAdminUnifiedDashboard() {
               {adminFirstName ? `${greeting}, ${adminFirstName}` : greeting} 👋
             </h1>
           </div>
-          <p className="text-xs text-ink-400 font-sans mt-0.5">Here&apos;s what&apos;s happening in {companyName} today.</p>
+          {currentSection === 'ops' && activeTab === 'roster' ? (
+            <p className="text-xs text-ink-400 font-sans mt-0.5 flex items-center gap-1">
+              <span>Employees</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-ink-600 font-medium">All Employees</span>
+            </p>
+          ) : (
+            <p className="text-xs text-ink-400 font-sans mt-0.5">Here&apos;s what&apos;s happening in {companyName} today.</p>
+          )}
         </div>
 
         <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
@@ -556,7 +564,13 @@ export default function PremiumAdminUnifiedDashboard() {
         {currentSection === 'ops' && (
           <div className="space-y-6">
 
-            {/* KPI cards */}
+            {/* KPI cards, analytics, and workspace summary — this is the operational
+                overview and is intentionally hidden while the Employees (roster) tab
+                is open, since that view now has its own purpose-built metrics/summary
+                panels. It still renders for the other ops tabs (leaves, advances,
+                tasks, corrections, payroll) where it provides useful context. */}
+            {activeTab !== 'roster' && (
+            <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard
                 icon={<Users className="w-4 h-4" />}
@@ -710,12 +724,14 @@ export default function PremiumAdminUnifiedDashboard() {
                 )}
               </Card>
             </div>
+            </>
+            )}
 
             {/* Tabs panel (roster / leaves / advances / tasks / compliance / payroll) */}
             <Card className="min-h-[500px] flex flex-col">
               <div className="flex flex-wrap gap-0.5 p-2 border-b border-[var(--border-subtle)] bg-[var(--surface-canvas)]/60">
                 {[
-                  { id: 'roster', label: 'Roster' },
+                  { id: 'roster', label: 'Employees' },
                   { id: 'leaves', label: `Leaves (${leaveRequests.length})` },
                   { id: 'advances', label: `Advances (${advanceRequests.length})` },
                   { id: 'tasks', label: 'Tasks' },
@@ -749,6 +765,7 @@ export default function PremiumAdminUnifiedDashboard() {
                   startEditing={startEditing}
                   handleUpdateWorkflowStatus={(table, id, status) => handleUpdateWorkflowStatus(table, id, status)}
                   refreshOperationalData={async () => await refreshOperationalData(companyId!)}
+                  onAddEmployee={() => setAddEmployeeOpen(true)}
                 />
               </div>
             </Card>
