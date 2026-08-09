@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,40 +12,46 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from 'recharts';
-import { Clock, PieChart as PieIcon, BarChart3 } from 'lucide-react';
+import { Clock, Activity } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
    NOTE ON DATA SOURCES
-   These charts only use fields already present in
-   the dashboard's existing state (todayAttendance,
-   employees, deptCounts). No historical multi-day
-   attendance table exists yet, so there is no real
-   "trend over time" data — the hour-of-day chart
-   below uses today's punch_in_time values instead
-   of fabricating a weekly trend. Wire a real
-   attendance_history query later if a multi-day
-   trend view is wanted.
+   These charts only use fields already present in the
+   dashboard's existing state (todayAttendance, employees,
+   leaveRequests). No historical multi-day attendance table
+   exists yet, so there is no real "trend over time" data —
+   the hour-of-day chart below uses today's punch_in_time
+   values instead of fabricating a weekly trend. Wire a real
+   attendance_history query later if a multi-day trend view
+   is wanted.
+
+   The attendance breakdown uses Present (todayAttendance),
+   On Leave (pending leave_requests for today — the only leave
+   signal currently fetched by the dashboard) and Absent
+   (the remainder). The reference design's "Half Day" segment
+   has no backing field in the current attendance schema, so
+   it's intentionally left out rather than faked.
 ───────────────────────────────────────────── */
 
-function ChartCard({
+function CardShell({
   icon,
   title,
   action,
   children,
+  className = '',
 }: {
   icon: React.ReactNode;
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5">
+    <div className={`bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5 ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center shrink-0">
+          <span className="w-7 h-7 rounded-lg bg-brand-subtle text-brand flex items-center justify-center shrink-0">
             {icon}
           </span>
           <h3 className="text-sm font-semibold text-ink-900 font-sans">{title}</h3>
@@ -59,14 +65,15 @@ function ChartCard({
 
 function EmptyChartState({ text }: { text: string }) {
   return (
-    <div className="h-[180px] flex items-center justify-center">
-      <p className="text-xs text-ink-400 font-sans text-center max-w-[220px]">{text}</p>
+    <div className="h-[220px] flex flex-col items-center justify-center gap-2">
+      <Activity className="w-6 h-6 text-ink-400" />
+      <p className="text-xs text-ink-400 font-sans text-center max-w-[240px]">{text}</p>
     </div>
   );
 }
 
 /* ── Check-ins by hour (today) ───────────────────────────────── */
-function CheckInsByHourChart({ todayAttendance }: { todayAttendance: any[] }) {
+export function CheckInsByHourChart({ todayAttendance }: { todayAttendance: any[] }) {
   const data = useMemo(() => {
     if (!todayAttendance || todayAttendance.length === 0) return [];
     const buckets: Record<number, number> = {};
@@ -86,135 +93,118 @@ function CheckInsByHourChart({ todayAttendance }: { todayAttendance: any[] }) {
     return out;
   }, [todayAttendance]);
 
+  const total = todayAttendance?.length || 0;
+
   return (
-    <ChartCard icon={<Clock className="w-3.5 h-3.5" />} title="Check-ins by hour (today)">
+    <CardShell
+      icon={<Clock className="w-3.5 h-3.5" />}
+      title="Check-ins by hour (today)"
+      className="h-full"
+    >
       {data.length === 0 ? (
         <EmptyChartState text="Check-in activity will appear here once employees start punching in." />
       ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="checkinFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
-            <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'var(--ink-400)' }} axisLine={false} tickLine={false} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} axisLine={false} tickLine={false} width={24} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
-            <Area type="monotone" dataKey="count" stroke="#7c3aed" strokeWidth={2} fill="url(#checkinFill)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        <>
+          <div className="mb-3">
+            <span className="text-3xl font-bold text-ink-900 font-sans tabular-nums block leading-none">{total}</span>
+            <span className="text-xs text-ink-400 font-sans">Total check-ins</span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+              <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'var(--ink-400)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip
+                cursor={{ fill: 'var(--surface-card-hover)' }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}
+                formatter={(value: any) => [`${value} check-ins`, '']}
+                labelFormatter={(label) => label}
+              />
+              <Bar dataKey="count" fill="var(--brand-primary)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+            </BarChart>
+          </ResponsiveContainer>
+        </>
       )}
-    </ChartCard>
+    </CardShell>
   );
 }
 
-/* ── Attendance donut (present vs total) ─────────────────────── */
-function AttendanceDonut({ employees, todayAttendance }: { employees: any[]; todayAttendance: any[] }) {
+/* ── Attendance breakdown donut ──────────────────────────────── */
+export function AttendanceDonut({ employees, todayAttendance, leaveRequests }: { employees: any[]; todayAttendance: any[]; leaveRequests: any[] }) {
   const total = employees.length;
   const present = todayAttendance.length;
-  const absent = Math.max(0, total - present);
-  const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+  const onLeave = Math.min(leaveRequests?.length || 0, Math.max(0, total - present));
+  const absent = Math.max(0, total - present - onLeave);
 
-  const data = [
-    { name: 'Present', value: present },
-    { name: 'Absent', value: absent || 1 },
+  const segments = [
+    { name: 'Present', value: present, color: '#15803d' },
+    { name: 'On Leave', value: onLeave, color: '#d97706' },
+    { name: 'Absent', value: absent, color: '#e2e8f0' },
   ];
-  const colors = ['#10b981', '#e2e8f0'];
+  const hasData = total > 0;
+  const chartData = hasData ? segments.filter((s) => s.value > 0) : [{ name: 'Empty', value: 1, color: '#e2e8f0' }];
 
   return (
-    <ChartCard icon={<PieIcon className="w-3.5 h-3.5" />} title="Attendance today">
-      {total === 0 ? (
+    <CardShell icon={<Activity className="w-3.5 h-3.5" />} title="Attendance overview" className="h-full">
+      {!hasData ? (
         <EmptyChartState text="Attendance breakdown will appear here once you onboard employees." />
       ) : (
-        <div className="relative h-[180px] flex items-center justify-center">
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={data} dataKey="value" innerRadius={55} outerRadius={75} startAngle={90} endAngle={-270} stroke="none">
-                {data.map((entry, i) => (
-                  <Cell key={entry.name} fill={colors[i]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-2xl font-bold text-ink-900 font-sans">{rate}%</span>
-            <span className="text-[10px] text-ink-400 font-sans">present</span>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-[180px] w-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={chartData} dataKey="value" innerRadius={55} outerRadius={78} startAngle={90} endAngle={-270} stroke="none">
+                  {chartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-2xl font-bold text-ink-900 font-sans">{total}</span>
+              <span className="text-[10px] text-ink-400 font-sans">Total</span>
+            </div>
+          </div>
+          <div className="w-full space-y-2">
+            {segments.map((s) => (
+              <div key={s.name} className="flex items-center justify-between text-xs font-sans">
+                <span className="flex items-center gap-2 text-ink-600">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+                  {s.name}
+                </span>
+                <span className="text-ink-900 font-semibold tabular-nums">
+                  {s.value} <span className="text-ink-400 font-normal">({total > 0 ? Math.round((s.value / total) * 100) : 0}%)</span>
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
-    </ChartCard>
+    </CardShell>
   );
 }
 
-/* ── Department / designation distribution ───────────────────── */
-function DistributionBarChart({
-  deptCounts,
-  designationCounts,
-}: {
-  deptCounts: Record<string, number>;
-  designationCounts: Record<string, number>;
-}) {
-  const [mode, setMode] = useState<'department' | 'designation'>('department');
-  const source = mode === 'department' ? deptCounts : designationCounts;
-  const data = Object.entries(source).map(([name, count]) => ({ name, count }));
-
-  return (
-    <ChartCard
-      icon={<BarChart3 className="w-3.5 h-3.5" />}
-      title="Team distribution"
-      action={
-        <div className="flex gap-0.5 bg-[var(--surface-card-hover)] p-0.5 rounded-md border border-[var(--border-subtle)]">
-          {(['department', 'designation'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-2.5 py-1 rounded text-[10px] font-sans font-medium capitalize cursor-pointer transition-colors ${
-                mode === m ? 'bg-[var(--surface-card)] text-ink-900 shadow-sm' : 'text-ink-400 hover:text-ink-600'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      }
-    >
-      {data.length === 0 ? (
-        <EmptyChartState text="Team distribution will appear here once you onboard employees." />
-      ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--ink-400)' }} axisLine={false} tickLine={false} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--ink-400)' }} axisLine={false} tickLine={false} width={24} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
-            <Bar dataKey="count" fill="#4f46e5" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </ChartCard>
-  );
-}
-
-/* ── Exported section ─────────────────────────────────────────── */
+/* ── Exported section (charts only — Quick Actions lives in page.tsx
+     since it needs access to page-level handlers like opening the
+     Add Employee drawer and switching tabs) ─────────────────────── */
 export default function DashboardCharts({
   employees,
   todayAttendance,
-  deptCounts,
-  designationCounts,
+  leaveRequests,
 }: {
   employees: any[];
   todayAttendance: any[];
-  deptCounts: Record<string, number>;
-  designationCounts: Record<string, number>;
+  leaveRequests: any[];
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <CheckInsByHourChart todayAttendance={todayAttendance} />
-      <AttendanceDonut employees={employees} todayAttendance={todayAttendance} />
-      <DistributionBarChart deptCounts={deptCounts} designationCounts={designationCounts} />
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="lg:col-span-2">
+        <CheckInsByHourChart todayAttendance={todayAttendance} />
+      </div>
+      <div>
+        <AttendanceDonut employees={employees} todayAttendance={todayAttendance} leaveRequests={leaveRequests} />
+      </div>
     </div>
   );
 }

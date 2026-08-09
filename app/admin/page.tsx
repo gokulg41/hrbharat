@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { onboardEmployeeAction, updateCompanyGeofenceAction, createCompanyShiftAction, assignEmployeeShiftAction } from '@/lib/actions';
 import AdminTabsView from './tabs-view';
-import DashboardCharts from './dashboard-charts';
+import { CheckInsByHourChart, AttendanceDonut } from './dashboard-charts';
 
 import {
   UserPlus,
@@ -14,21 +14,24 @@ import {
   MapPin,
   X,
   ShieldAlert,
-  Building2,
   Cpu,
   Users,
-  Settings,
   Activity,
-  Briefcase,
-  DollarSign,
   Calendar,
+  CalendarCheck,
   Layers,
   Search,
   Lock,
-  RefreshCw,
   Terminal,
   ChevronRight,
-  Circle,
+  Bell,
+  HelpCircle,
+  ChevronDown,
+  IndianRupee,
+  Wallet,
+  BarChart3,
+  UserRound,
+  FileClock,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
@@ -56,7 +59,7 @@ function Avatar({ name }: { name: string }) {
   const hue = hues[(name || '').charCodeAt(0) % hues.length];
   return (
     <span
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-semibold shrink-0"
+      className="inline-flex items-center justify-center w-9 h-9 rounded-full text-[11px] font-semibold shrink-0"
       style={{ background: `hsl(${hue} 55% 88%)`, color: `hsl(${hue} 50% 35%)` }}
     >
       {initials}
@@ -117,11 +120,96 @@ function Divider() {
   return <div className="border-t border-[var(--border-subtle)]" />;
 }
 
+/* KPI card used in the top strip of the overview */
+function KpiCard({
+  icon,
+  iconBg,
+  iconColor,
+  label,
+  value,
+  sub,
+  subColor = 'text-ink-400',
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  label: string;
+  value: string;
+  sub: string;
+  subColor?: string;
+}) {
+  return (
+    <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl px-5 py-4 flex flex-col gap-3">
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
+        {icon}
+      </div>
+      <div>
+        <span className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 block mb-1">{label}</span>
+        <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none block">{value}</span>
+        <span className={`text-[11px] font-sans block mt-1.5 ${subColor}`}>{sub}</span>
+      </div>
+    </div>
+  );
+}
+
+/* Quick action row inside the Quick Actions card */
+function QuickAction({ icon, label, badge, onClick }: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-[var(--border-subtle)] hover:bg-[var(--surface-card-hover)] hover:border-[var(--border-hover)] transition-colors cursor-pointer group"
+    >
+      <span className="flex items-center gap-2.5 text-sm font-sans font-medium text-ink-900">
+        <span className="w-6 h-6 rounded-md bg-brand-subtle text-brand flex items-center justify-center shrink-0">{icon}</span>
+        {label}
+      </span>
+      <span className="flex items-center gap-2 shrink-0">
+        {!!badge && <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold flex items-center justify-center">{badge}</span>}
+        <ChevronRight className="w-3.5 h-3.5 text-ink-400 group-hover:text-ink-600 transition-colors" />
+      </span>
+    </button>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    pending: 'bg-amber-50 text-amber-700',
+    approved: 'bg-emerald-50 text-emerald-700',
+    rejected: 'bg-rose-50 text-rose-700',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize shrink-0 ${map[status] || 'bg-surface-card-hover text-ink-600'}`}>
+      {status}
+    </span>
+  );
+}
+
+function activityIcon(eventType?: string) {
+  const type = (eventType || '').toLowerCase();
+  if (type.includes('leave')) return <CalendarCheck className="w-3.5 h-3.5" />;
+  if (type.includes('payroll')) return <IndianRupee className="w-3.5 h-3.5" />;
+  if (type.includes('advance')) return <Wallet className="w-3.5 h-3.5" />;
+  if (type.includes('employee')) return <UserRound className="w-3.5 h-3.5" />;
+  return <FileClock className="w-3.5 h-3.5" />;
+}
+
+function timeAgo(dateStr: string) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
 /* ─────────────────────────────────────────────
    Main Component
 ───────────────────────────────────────────── */
 export default function PremiumAdminUnifiedDashboard() {
   const [currentSection, setCurrentSection] = useState<'ops' | 'security' | 'logs'>('ops');
+  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -257,6 +345,7 @@ export default function PremiumAdminUnifiedDashboard() {
         await refreshOperationalData(companyId);
         setFullName(''); setEmail(''); setPhone(''); setDesignation(''); setDepartment('');
         setMonthlySalary(''); setEmpCodeInput(''); setBankAccount(''); setIfscCode('');
+        setAddEmployeeOpen(false);
       } else {
         setStatusMessage({ type: 'error', text: res?.error ?? 'Failed to add employee.' });
       }
@@ -315,10 +404,45 @@ export default function PremiumAdminUnifiedDashboard() {
     setEditIfscCode(emp.ifsc_code || '');
   };
 
+  const goToTab = (section: 'ops' | 'security' | 'logs', tab?: typeof activeTab) => {
+    setCurrentSection(section);
+    if (tab) setActiveTab(tab);
+  };
+
+  const employeeNameById = (employeeId: string) =>
+    employees.find((e) => e.id === employeeId)?.full_name || 'Employee';
+  const employeeDesignationById = (employeeId: string) =>
+    employees.find((e) => e.id === employeeId)?.designation || 'Staff';
+
   const totalPayrollLiability = employees.reduce((sum, emp) => sum + (Number(emp.monthly_salary) || 0), 0);
   const deptCounts = employees.reduce((acc: any, emp) => { acc[emp.department || 'Operations'] = (acc[emp.department || 'Operations'] || 0) + 1; return acc; }, {});
   const designationCounts = employees.reduce((acc: any, emp) => { acc[emp.designation || 'Staff'] = (acc[emp.designation || 'Staff'] || 0) + 1; return acc; }, {});
   const currentAttendanceRate = employees.length > 0 ? Math.round((todayAttendance.length / employees.length) * 100) : 0;
+
+  const now = new Date();
+  const newHiresThisMonth = employees.filter((emp) => {
+    if (!emp.joining_date && !emp.created_at) return false;
+    const d = new Date(emp.joining_date || emp.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const greetingHour = now.getHours();
+  const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const formatLakhs = (value: number) => {
+    if (value <= 0) return '₹0';
+    const lakhs = value / 100000;
+    return `₹${lakhs.toFixed(lakhs >= 10 ? 1 : 2)}L`;
+  };
+
+  const formatDateRange = (start: string, end: string) => {
+    if (!start) return '';
+    const s = new Date(start);
+    const e = end ? new Date(end) : s;
+    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+    const days = Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
+    return `${s.toLocaleDateString('en-IN', opts)} - ${e.toLocaleDateString('en-IN', opts)} (${days} day${days === 1 ? '' : 's'})`;
+  };
 
   if (loading) {
     return (
@@ -332,28 +456,65 @@ export default function PremiumAdminUnifiedDashboard() {
   }
 
   const navItems = [
-    { id: 'ops', label: 'Operations', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'ops', label: 'Workspace', icon: <Users className="w-3.5 h-3.5" /> },
     { id: 'security', label: 'Security', icon: <Lock className="w-3.5 h-3.5" /> },
-    { id: 'logs', label: 'Logs', icon: <Terminal className="w-3.5 h-3.5" /> },
+    { id: 'logs', label: 'Insights', icon: <Terminal className="w-3.5 h-3.5" /> },
   ];
 
   return (
     <div className="min-h-screen bg-[var(--surface-canvas)] antialiased">
 
       {/* ── Top bar ── */}
-      <header className="sticky top-0 z-40 bg-[var(--surface-card)]/90 backdrop-blur border-b border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-[var(--surface-card)]/90 backdrop-blur border-b border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-ink-900 font-sans leading-tight">
-              {adminFirstName ? `Welcome back, ${adminFirstName}` : 'Welcome back'}
+              {adminFirstName ? `${greeting}, ${adminFirstName}` : greeting} 👋
             </h1>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           </div>
-          <p className="text-xs text-ink-400 font-sans mt-0.5">{companyName} · Admin Workspace</p>
+          <p className="text-xs text-ink-400 font-sans mt-0.5">Here&apos;s what&apos;s happening in {companyName} today.</p>
         </div>
 
-        {/* Nav tabs */}
-        <nav className="flex gap-0.5 bg-[var(--surface-card-hover)] p-1 rounded-lg border border-[var(--border-subtle)]">
+        <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+          {/* Global search — routes into the roster tab so it's a real, functional search */}
+          <div className="relative hidden md:block w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
+            <input
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value) goToTab('ops', 'roster');
+              }}
+              placeholder="Search employees, payroll, reports…"
+              className="w-full pl-9 pr-3 py-2 text-xs font-sans text-ink-900 bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400"
+            />
+          </div>
+
+          <button className="p-2 rounded-lg text-ink-600 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
+            <Bell className="w-4 h-4" />
+          </button>
+          <button className="p-2 rounded-lg text-ink-600 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
+            <HelpCircle className="w-4 h-4" />
+          </button>
+
+          <button className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-full hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
+            <Avatar name={adminFirstName || 'Admin'} />
+            <ChevronDown className="w-3.5 h-3.5 text-ink-400" />
+          </button>
+
+          <button
+            onClick={() => setAddEmployeeOpen(true)}
+            className="flex items-center gap-1.5 bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold px-3.5 py-2.5 rounded-lg transition-colors cursor-pointer shrink-0"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Add Employee
+          </button>
+        </div>
+      </header>
+
+      {/* ── Section nav ── */}
+      <div className="px-6 pt-4">
+        <nav className="inline-flex gap-0.5 bg-[var(--surface-card-hover)] p-1 rounded-lg border border-[var(--border-subtle)]">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -369,7 +530,7 @@ export default function PremiumAdminUnifiedDashboard() {
             </button>
           ))}
         </nav>
-      </header>
+      </div>
 
       {/* ── Status banner ── */}
       {statusMessage && (
@@ -387,160 +548,210 @@ export default function PremiumAdminUnifiedDashboard() {
       )}
 
       {/* ── Main content ── */}
-      <main className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
 
         {/* ═══════════════════════════════
-            SECTION: OPERATIONS
+            SECTION: WORKSPACE (overview + roster tabs)
         ═══════════════════════════════ */}
         {currentSection === 'ops' && (
           <div className="space-y-6">
 
-            {/* Metric strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                {
-                  label: 'Active Roster',
-                  value: String(employees.length),
-                  icon: <Users className="w-4 h-4" />,
-                  iconBg: 'bg-teal-50',
-                  iconColor: 'text-teal-700',
-                  sub: employees.length === 0 ? 'No hires yet' : `${employees.length} on payroll`,
-                },
-                {
-                  label: 'Monthly Payroll',
-                  value: `₹${totalPayrollLiability.toLocaleString('en-IN')}`,
-                  icon: <DollarSign className="w-4 h-4" />,
-                  iconBg: 'bg-emerald-50',
-                  iconColor: 'text-emerald-700',
-                  sub: totalPayrollLiability === 0 ? 'Runs after roster is set' : 'Current cycle',
-                },
-                {
-                  label: 'Pending Reviews',
-                  value: String(leaveRequests.length + advanceRequests.length + regularizations.length),
-                  icon: <Briefcase className="w-4 h-4" />,
-                  iconBg: 'bg-amber-50',
-                  iconColor: 'text-amber-700',
-                  sub: leaveRequests.length + advanceRequests.length + regularizations.length > 0 ? 'Needs attention' : 'All caught up',
-                },
-                {
-                  label: 'Attendance Rate',
-                  value: employees.length === 0 ? '—' : `${currentAttendanceRate}%`,
-                  icon: <Activity className="w-4 h-4" />,
-                  iconBg: 'bg-brand-subtle',
-                  iconColor: 'text-brand',
-                  sub: employees.length === 0 ? 'Needs first check-in' : `${todayAttendance.length} present today`,
-                },
-              ].map((m) => (
-                <div key={m.label} className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl px-5 py-4 flex flex-col gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${m.iconBg} ${m.iconColor}`}>
-                    {m.icon}
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 block mb-1">{m.label}</span>
-                    <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none block">{m.value}</span>
-                    <span className="text-[11px] text-ink-400 font-sans block mt-1.5">{m.sub}</span>
-                  </div>
-                </div>
-              ))}
+            {/* KPI cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <KpiCard
+                icon={<Users className="w-4 h-4" />}
+                iconBg="bg-brand-subtle"
+                iconColor="text-brand"
+                label="Active Employees"
+                value={String(employees.length)}
+                sub={employees.length === 0 ? 'No hires yet' : newHiresThisMonth > 0 ? `+${newHiresThisMonth} this month` : `${employees.length} on payroll`}
+                subColor={newHiresThisMonth > 0 ? 'text-emerald-600' : 'text-ink-400'}
+              />
+              <KpiCard
+                icon={<IndianRupee className="w-4 h-4" />}
+                iconBg="bg-emerald-50"
+                iconColor="text-emerald-700"
+                label="Monthly Payroll"
+                value={formatLakhs(totalPayrollLiability)}
+                sub={totalPayrollLiability === 0 ? 'Runs after roster is set' : 'Current cycle · gross'}
+              />
+              <KpiCard
+                icon={<Calendar className="w-4 h-4" />}
+                iconBg="bg-amber-50"
+                iconColor="text-amber-700"
+                label="On Leave Today"
+                value={String(leaveRequests.length)}
+                sub="Pending approvals"
+                subColor={leaveRequests.length > 0 ? 'text-amber-600' : 'text-ink-400'}
+              />
+              <KpiCard
+                icon={<Activity className="w-4 h-4" />}
+                iconBg="bg-violet-50"
+                iconColor="text-violet-700"
+                label="Attendance Today"
+                value={employees.length === 0 ? '—' : `${currentAttendanceRate}%`}
+                sub={employees.length === 0 ? 'Needs first check-in' : `${todayAttendance.length} of ${employees.length} present`}
+              />
             </div>
 
-            {/* Charts */}
-            <DashboardCharts
-              employees={employees}
-              todayAttendance={todayAttendance}
-              deptCounts={deptCounts}
-              designationCounts={designationCounts}
-            />
+            {/* Analytics row: check-ins + donut + quick actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              <div className="lg:col-span-5">
+                <CheckInsByHourChart todayAttendance={todayAttendance} />
+              </div>
+              <div className="lg:col-span-4">
+                <AttendanceDonut employees={employees} todayAttendance={todayAttendance} leaveRequests={leaveRequests} />
+              </div>
+              <div className="lg:col-span-3">
+                <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5 h-full flex flex-col">
+                  <h3 className="text-sm font-semibold text-ink-900 font-sans mb-4">Quick Actions</h3>
+                  <div className="space-y-2">
+                    <QuickAction icon={<UserPlus className="w-3.5 h-3.5" />} label="Add Employee" onClick={() => setAddEmployeeOpen(true)} />
+                    <QuickAction icon={<IndianRupee className="w-3.5 h-3.5" />} label="Run Payroll" onClick={() => goToTab('ops', 'payroll')} />
+                    <QuickAction icon={<CalendarCheck className="w-3.5 h-3.5" />} label="Approve Leave" badge={leaveRequests.length} onClick={() => goToTab('ops', 'leaves')} />
+                    <QuickAction icon={<Wallet className="w-3.5 h-3.5" />} label="Add Advance" badge={advanceRequests.length} onClick={() => goToTab('ops', 'advances')} />
+                    <QuickAction icon={<BarChart3 className="w-3.5 h-3.5" />} label="View Insights" onClick={() => goToTab('logs')} />
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            {/* Main grid: onboarding form + tabs */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Bottom row: leave requests + payroll summary + recent activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
-              {/* Onboard form */}
-              <Card className="lg:col-span-4">
-                <div className="px-5 pt-5 pb-4">
-                  <SectionLabel icon={<UserPlus className="w-3.5 h-3.5" />}>Onboard Employee</SectionLabel>
-                  <p className="text-xs text-ink-600 font-sans -mt-1 mb-4">Add a new member to your workspace.</p>
-
-                  <form onSubmit={handleOnboardSubmit} className="space-y-3.5">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><FormLabel required>Emp Code</FormLabel><Input required value={empCodeInput} onChange={e => setEmpCodeInput(e.target.value)} placeholder="HRB-102" /></div>
-                      <div><FormLabel required>Full Name</FormLabel><Input required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Liam Sterling" /></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><FormLabel required>Email</FormLabel><Input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@co.com" /></div>
-                      <div><FormLabel>Phone</FormLabel><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91..." /></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><FormLabel>Designation</FormLabel><Input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Engineer" /></div>
-                      <div><FormLabel>Department</FormLabel><Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="Engineering" /></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><FormLabel required>Joining Date</FormLabel><Input type="date" required value={joiningDate} onChange={e => setJoiningDate(e.target.value)} /></div>
-                      <div><FormLabel>Gross Salary</FormLabel><Input type="number" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value)} placeholder="₹ Monthly" /></div>
-                    </div>
-
-                    {/* Banking */}
-                    <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2">
-                      <SectionLabel>Banking Details</SectionLabel>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="Account No." />
-                        <Input value={ifscCode} onChange={e => setIfscCode(e.target.value)} placeholder="IFSC Code" />
+              {/* Leave requests */}
+              <Card>
+                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                  <SectionLabel icon={<CalendarCheck className="w-3.5 h-3.5" />}>Leave Requests</SectionLabel>
+                  <button onClick={() => goToTab('ops', 'leaves')} className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
+                    View all
+                  </button>
+                </div>
+                <Divider />
+                {leaveRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
+                    <CalendarCheck className="w-6 h-6 text-ink-400" />
+                    <p className="text-xs text-ink-400 font-sans max-w-[220px]">No pending leave requests right now.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[var(--border-subtle)] max-h-[320px] overflow-y-auto">
+                    {leaveRequests.slice(0, 5).map((req) => (
+                      <div key={req.id} className="px-5 py-3 flex items-center gap-3">
+                        <Avatar name={employeeNameById(req.employee_id)} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-ink-900 font-sans truncate">{employeeNameById(req.employee_id)}</p>
+                          <p className="text-[11px] text-ink-400 font-sans truncate">{employeeDesignationById(req.employee_id)} · {req.leave_type || 'Leave'}</p>
+                          <p className="text-[11px] text-ink-400 font-sans">{formatDateRange(req.start_date, req.end_date)}</p>
+                        </div>
+                        <StatusPill status={req.status || 'pending'} />
                       </div>
-                    </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
 
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      {submitting ? 'Adding employee…' : 'Onboard Employee'}
-                    </button>
-                  </form>
+              {/* Payroll summary */}
+              <Card>
+                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                  <SectionLabel icon={<IndianRupee className="w-3.5 h-3.5" />}>Payroll Summary</SectionLabel>
+                  <button onClick={() => goToTab('ops', 'payroll')} className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
+                    View details
+                  </button>
+                </div>
+                <Divider />
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center justify-between text-sm font-sans">
+                    <span className="text-ink-600">Total Employees</span>
+                    <span className="text-ink-900 font-semibold tabular-nums">{employees.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-sans">
+                    <span className="text-ink-600">Gross Payroll</span>
+                    <span className="text-ink-900 font-semibold tabular-nums">{formatLakhs(totalPayrollLiability)}</span>
+                  </div>
+                  <Divider />
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-sm font-sans font-semibold text-brand">Monthly Payroll</span>
+                    <span className="text-xl font-bold text-brand font-sans tabular-nums">{formatLakhs(totalPayrollLiability)}</span>
+                  </div>
+                  <p className="text-[10px] text-ink-400 font-sans leading-relaxed">
+                    Deduction breakdown will appear here once a payroll run has been processed for this cycle.
+                  </p>
                 </div>
               </Card>
 
-              {/* Tabs panel */}
-              <Card className="lg:col-span-8 min-h-[600px] flex flex-col">
-                <div className="flex flex-wrap gap-0.5 p-2 border-b border-[var(--border-subtle)] bg-[var(--surface-canvas)]/60">
-                  {[
-                    { id: 'roster', label: 'Roster' },
-                    { id: 'leaves', label: `Leaves (${leaveRequests.length})` },
-                    { id: 'advances', label: `Advances (${advanceRequests.length})` },
-                    { id: 'tasks', label: 'Tasks' },
-                    { id: 'compliance', label: `Corrections (${regularizations.length})` },
-                    { id: 'payroll', label: 'Payroll' },
-                  ].map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveTab(t.id as any)}
-                      className={`text-[11px] font-sans font-medium px-3.5 py-2 rounded-md cursor-pointer transition-all ${
-                        activeTab === t.id
-                          ? 'bg-[var(--surface-card)] text-ink-900 border border-[var(--border-subtle)] shadow-sm'
-                          : 'text-ink-600 hover:text-ink-900'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+              {/* Recent activity */}
+              <Card>
+                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                  <SectionLabel icon={<Layers className="w-3.5 h-3.5" />}>Recent Activity</SectionLabel>
+                  <button onClick={() => goToTab('logs')} className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
+                    View all
+                  </button>
                 </div>
-                <div className="flex-1 flex flex-col">
-                  <AdminTabsView
-                    activeTab={activeTab}
-                    employees={employees}
-                    leaveRequests={leaveRequests}
-                    advanceRequests={advanceRequests}
-                    dailyTaskLogs={dailyTaskLogs}
-                    regularizations={regularizations}
-                    systemLogs={systemLogs}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    startEditing={startEditing}
-                    handleUpdateWorkflowStatus={(table, id, status) => handleUpdateWorkflowStatus(table, id, status)}
-                    refreshOperationalData={async () => await refreshOperationalData(companyId!)}
-                  />
-                </div>
+                <Divider />
+                {systemLogs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
+                    <Layers className="w-6 h-6 text-ink-400" />
+                    <p className="text-xs text-ink-400 font-sans max-w-[220px]">Activity will appear here as your team uses HRBharat.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[var(--border-subtle)] max-h-[320px] overflow-y-auto">
+                    {systemLogs.slice(0, 5).map((log) => (
+                      <div key={log.id} className="px-5 py-3 flex items-start gap-3">
+                        <span className="w-7 h-7 rounded-lg bg-brand-subtle text-brand flex items-center justify-center shrink-0 mt-0.5">
+                          {activityIcon(log.event_type)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-ink-900 font-sans leading-snug">{log.description}</p>
+                          <p className="text-[10px] text-ink-400 font-sans mt-0.5">{timeAgo(log.created_at)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Card>
             </div>
+
+            {/* Tabs panel (roster / leaves / advances / tasks / compliance / payroll) */}
+            <Card className="min-h-[500px] flex flex-col">
+              <div className="flex flex-wrap gap-0.5 p-2 border-b border-[var(--border-subtle)] bg-[var(--surface-canvas)]/60">
+                {[
+                  { id: 'roster', label: 'Roster' },
+                  { id: 'leaves', label: `Leaves (${leaveRequests.length})` },
+                  { id: 'advances', label: `Advances (${advanceRequests.length})` },
+                  { id: 'tasks', label: 'Tasks' },
+                  { id: 'compliance', label: `Corrections (${regularizations.length})` },
+                  { id: 'payroll', label: 'Payroll' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id as any)}
+                    className={`text-[11px] font-sans font-medium px-3.5 py-2 rounded-md cursor-pointer transition-all ${
+                      activeTab === t.id
+                        ? 'bg-[var(--surface-card)] text-ink-900 border border-[var(--border-subtle)] shadow-sm'
+                        : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 flex flex-col">
+                <AdminTabsView
+                  activeTab={activeTab}
+                  employees={employees}
+                  leaveRequests={leaveRequests}
+                  advanceRequests={advanceRequests}
+                  dailyTaskLogs={dailyTaskLogs}
+                  regularizations={regularizations}
+                  systemLogs={systemLogs}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  startEditing={startEditing}
+                  handleUpdateWorkflowStatus={(table, id, status) => handleUpdateWorkflowStatus(table, id, status)}
+                  refreshOperationalData={async () => await refreshOperationalData(companyId!)}
+                />
+              </div>
+            </Card>
 
             {/* Shift management */}
             <Card>
@@ -730,6 +941,59 @@ export default function PremiumAdminUnifiedDashboard() {
         )}
 
       </main>
+
+      {/* ── Add Employee drawer ── */}
+      {addEmployeeOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-brand/40 backdrop-blur-sm" onClick={() => setAddEmployeeOpen(false)} />
+          <div className="relative w-full max-w-md h-full bg-[var(--surface-card)] shadow-xl flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="px-5 py-4 flex items-center justify-between border-b border-[var(--border-subtle)] shrink-0">
+              <div>
+                <h3 className="text-sm font-semibold text-ink-900 font-sans">Onboard Employee</h3>
+                <p className="text-[11px] text-ink-400 font-sans">Add a new member to your workspace.</p>
+              </div>
+              <button onClick={() => setAddEmployeeOpen(false)} className="p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleOnboardSubmit} className="flex-1 overflow-y-auto px-5 py-5 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div><FormLabel required>Emp Code</FormLabel><Input required value={empCodeInput} onChange={e => setEmpCodeInput(e.target.value)} placeholder="HRB-102" /></div>
+                <div><FormLabel required>Full Name</FormLabel><Input required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Liam Sterling" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><FormLabel required>Email</FormLabel><Input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@co.com" /></div>
+                <div><FormLabel>Phone</FormLabel><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91..." /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><FormLabel>Designation</FormLabel><Input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Engineer" /></div>
+                <div><FormLabel>Department</FormLabel><Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="Engineering" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><FormLabel required>Joining Date</FormLabel><Input type="date" required value={joiningDate} onChange={e => setJoiningDate(e.target.value)} /></div>
+                <div><FormLabel>Gross Salary</FormLabel><Input type="number" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value)} placeholder="₹ Monthly" /></div>
+              </div>
+
+              {/* Banking */}
+              <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2">
+                <SectionLabel>Banking Details</SectionLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="Account No." />
+                  <Input value={ifscCode} onChange={e => setIfscCode(e.target.value)} placeholder="IFSC Code" />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {submitting ? 'Adding employee…' : 'Onboard Employee'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Edit employee modal ── */}
       {editingEmployee && (

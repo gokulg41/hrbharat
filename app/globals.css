@@ -31,6 +31,23 @@
 
     /* Shadow */
     --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.06);
+
+    /* Sidebar (deep navy, enterprise) */
+    --sidebar-bg: #0b1220;
+    --sidebar-bg-elevated: #111a2e;
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-text: #cbd5e1;
+    --sidebar-text-muted: #64748b;
+    --sidebar-text-active: #ffffff;
+    --sidebar-item-active-bg: var(--brand-primary);
+
+    /* Restrained accent set used sparingly across KPI/status icons */
+    --accent-violet: #7c3aed;
+    --accent-violet-bg: #f5f3ff;
+    --accent-green: #15803d;
+    --accent-green-bg: #f0fdf4;
+    --accent-orange: #c2410c;
+    --accent-orange-bg: #fff7ed;
   }
 }
 
