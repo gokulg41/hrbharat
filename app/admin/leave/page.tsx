@@ -12,19 +12,19 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-import LeavePageHeader from './components/LeavePageHeader';
-import LeaveStatCard from './components/LeaveStatCard';
-import LeaveRequestTabs, { LeaveTabKey } from './components/LeaveRequestTabs';
-import LeaveFilters, { LeaveFilterState } from './components/LeaveFilters';
-import LeaveRequestTable from './components/LeaveRequestTable';
-import Pagination from './components/Pagination';
-import LeaveBalanceSummary from './components/LeaveBalanceSummary';
-import LeaveCalendar from './components/LeaveCalendar';
-import QuickActions from './components/QuickActions';
+import LeavePageHeader from '@components/leave/LeavePageHeader';
+import LeaveStatCard from '@components/leave/LeaveStatCard';
+import LeaveRequestTabs, { LeaveTabKey } from '@components/leave/LeaveRequestTabs';
+import LeaveFilters, { LeaveFilterState } from '@components/leave/LeaveFilters';
+import LeaveRequestTable from '@components/leave/LeaveRequestTable';
+import Pagination from '@components/leave/Pagination';
+import LeaveBalanceSummary from '@components/leave/LeaveBalanceSummary';
+import LeaveCalendar from '@components/leave/LeaveCalendar';
+import QuickActions from '@components/leave/QuickActions';
 
-import { EmployeeRecord, LeaveRequest, LeaveStatus } from './lib/types';
-import { MOCK_EMPLOYEES, MOCK_LEAVE_REQUESTS } from './lib/mockData';
-import { computeEmployeeBalances } from './lib/balances';
+import { EmployeeRecord, LeaveRequest, LeaveStatus } from '@/lib/types';
+import { MOCK_EMPLOYEES, MOCK_LEAVE_REQUESTS } from '@/lib/mockData';
+import { computeEmployeeBalances } from '@/lib/balances';
 
 const TAB_TO_STATUS: Record<Exclude<LeaveTabKey, 'all'>, LeaveStatus> = {
   pending: 'Pending',
