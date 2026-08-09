@@ -22,7 +22,7 @@ import LeaveBalanceSummary from '@components/leave/LeaveBalanceSummary';
 import LeaveCalendar from '@components/leave/LeaveCalendar';
 import QuickActions from '@components/leave/QuickActions';
 
-import { EmployeeRecord, LeaveRequest, LeaveStatus } from '@/lib/types';;
+import { EmployeeRecord, LeaveRequest, LeaveStatus } from '@/lib/types';
 import { computeEmployeeBalances } from '@/lib/balances';
 
 const TAB_TO_STATUS: Record<Exclude<LeaveTabKey, 'all'>, LeaveStatus> = {
@@ -73,11 +73,13 @@ interface LeaveRequestJoinRow {
 export default function LeaveManagementPage() {
   const [adminName, setAdminName] = useState('Administrator');
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [identityResolved, setIdentityResolved] = useState(false);
 
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Record<string, EmployeeRecord>>({});
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<LeaveTabKey>('all');
   const [filters, setFilters] = useState<LeaveFilterState>(DEFAULT_FILTERS);
@@ -89,7 +91,10 @@ export default function LeaveManagementPage() {
   useEffect(() => {
     async function getIdentity() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setIdentityResolved(true);
+        return;
+      }
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, company_id')
@@ -97,26 +102,30 @@ export default function LeaveManagementPage() {
         .single();
       if (profile?.full_name) setAdminName(profile.full_name);
       if (profile?.company_id) setCompanyId(profile.company_id);
+      setIdentityResolved(true);
     }
     getIdentity();
   }, []);
 
   // ── Leave data: joined with employees for name/department/allocations,
-  //    scoped to the admin's company. Mock data only as an empty-state
-  //    fallback (per-employee allocations get mocked to match). ──
+  //    strictly scoped to the admin's company. No mock fallback — an empty
+  //    result is a real state (no employees/requests yet), not an error. ──
   useEffect(() => {
     async function fetchLeaveRequests() {
-      setLoading(true);
-      try {
-        if (!companyId) {
-          // Identity lookup hasn't resolved a company yet — fall back so the
-          // page isn't stuck loading (e.g. logged out, or no profile row).
-          setRequests(MOCK_LEAVE_REQUESTS);
-          setEmployees(MOCK_EMPLOYEES);
-          setSelectedEmployeeId((prev) => prev ?? MOCK_LEAVE_REQUESTS[0]?.employeeId ?? null);
-          return;
-        }
+      if (!identityResolved) return;
 
+      if (!companyId) {
+        // No resolvable company for this user — nothing to show.
+        setRequests([]);
+        setEmployees({});
+        setSelectedEmployeeId(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setLoadError(null);
+      try {
         const { data, error } = await supabase
           .from('leave_requests')
           .select(
@@ -130,62 +139,56 @@ export default function LeaveManagementPage() {
 
         const rows = (data ?? []) as unknown as LeaveRequestJoinRow[];
 
-        if (rows.length > 0) {
-          const mapped: LeaveRequest[] = rows.map((row) => {
-            const start = new Date(row.start_date + 'T00:00:00');
-            const end = new Date(row.end_date + 'T00:00:00');
-            const durationDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
-            return {
-              id: row.id,
-              employeeId: row.employee_id,
-              employeeCode: row.employees.employee_code,
-              employeeName: row.employees.full_name,
+        const mapped: LeaveRequest[] = rows.map((row) => {
+          const start = new Date(row.start_date + 'T00:00:00');
+          const end = new Date(row.end_date + 'T00:00:00');
+          const durationDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+          return {
+            id: row.id,
+            employeeId: row.employee_id,
+            employeeCode: row.employees.employee_code,
+            employeeName: row.employees.full_name,
+            department: row.employees.department,
+            avatarInitials: initialsFromName(row.employees.full_name),
+            leaveType: row.leave_type,
+            startDate: row.start_date,
+            endDate: row.end_date,
+            durationDays,
+            status: row.status,
+            appliedOn: row.created_at.slice(0, 10),
+          };
+        });
+
+        const employeeMap: Record<string, EmployeeRecord> = {};
+        rows.forEach((row) => {
+          if (!employeeMap[row.employee_id]) {
+            employeeMap[row.employee_id] = {
+              id: row.employee_id,
+              code: row.employees.employee_code,
+              name: row.employees.full_name,
               department: row.employees.department,
-              avatarInitials: initialsFromName(row.employees.full_name),
-              leaveType: row.leave_type,
-              startDate: row.start_date,
-              endDate: row.end_date,
-              durationDays,
-              status: row.status,
-              appliedOn: row.created_at.slice(0, 10),
+              casualAllocated: row.employees.casual_leave_balance,
+              sickAllocated: row.employees.sick_leave_balance,
+              paidAllocated: row.employees.paid_leave_balance,
             };
-          });
+          }
+        });
 
-          const employeeMap: Record<string, EmployeeRecord> = {};
-          rows.forEach((row) => {
-            if (!employeeMap[row.employee_id]) {
-              employeeMap[row.employee_id] = {
-                id: row.employee_id,
-                code: row.employees.employee_code,
-                name: row.employees.full_name,
-                department: row.employees.department,
-                casualAllocated: row.employees.casual_leave_balance,
-                sickAllocated: row.employees.sick_leave_balance,
-                paidAllocated: row.employees.paid_leave_balance,
-              };
-            }
-          });
-
-          setRequests(mapped);
-          setEmployees(employeeMap);
-          setSelectedEmployeeId((prev) => prev ?? mapped[0]?.employeeId ?? null);
-        } else {
-          // Empty backend result — use sample data so the page isn't blank in dev.
-          setRequests(MOCK_LEAVE_REQUESTS);
-          setEmployees(MOCK_EMPLOYEES);
-          setSelectedEmployeeId((prev) => prev ?? MOCK_LEAVE_REQUESTS[0]?.employeeId ?? null);
-        }
-      } catch {
-        // Table/join not available yet — fall back to sample data.
-        setRequests(MOCK_LEAVE_REQUESTS);
-        setEmployees(MOCK_EMPLOYEES);
-        setSelectedEmployeeId((prev) => prev ?? MOCK_LEAVE_REQUESTS[0]?.employeeId ?? null);
+        setRequests(mapped);
+        setEmployees(employeeMap);
+        setSelectedEmployeeId((prev) => prev ?? mapped[0]?.employeeId ?? null);
+      } catch (err) {
+        console.error('Failed to load leave requests', err);
+        setRequests([]);
+        setEmployees({});
+        setSelectedEmployeeId(null);
+        setLoadError('Could not load leave requests. Please refresh or try again shortly.');
       } finally {
         setLoading(false);
       }
     }
     fetchLeaveRequests();
-  }, [companyId]);
+  }, [companyId, identityResolved]);
 
   // ── Derived: filtered list ──
   const filtered = useMemo(() => {
@@ -249,8 +252,8 @@ export default function LeaveManagementPage() {
     setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
     try {
       await supabase.from('leave_requests').update({ status }).eq('id', id);
-    } catch {
-      // Best-effort — table may not exist in this environment yet.
+    } catch (err) {
+      console.error('Failed to update leave request status', err);
     }
   };
 
@@ -285,6 +288,12 @@ export default function LeaveManagementPage() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="bg-[var(--status-danger-bg)] border border-[var(--status-danger)]/30 text-[var(--status-danger)] text-sm font-sans px-4 py-3 rounded-lg">
+          {loadError}
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <LeaveStatCard icon={CalendarDays} label="Total Leave Requests" value={stats.totalRequests} subtext="This month" accent="blue" />
@@ -308,6 +317,13 @@ export default function LeaveManagementPage() {
           />
           {loading ? (
             <div className="px-5 py-16 text-center text-sm text-ink-600 font-sans">Loading leave requests…</div>
+          ) : requests.length === 0 ? (
+            <div className="px-5 py-16 text-center">
+              <p className="text-sm font-semibold text-ink-900 font-sans">No leave requests yet</p>
+              <p className="text-xs text-ink-600 font-sans mt-1">
+                Add employees to your company to start tracking leave requests here.
+              </p>
+            </div>
           ) : (
             <>
               <LeaveRequestTable
