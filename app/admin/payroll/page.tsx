@@ -39,7 +39,7 @@ function Avatar({ name }: { name: string }) {
 
 function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
   const map: Record<string, string> = {
-    gray:    'bg-stone-100 text-stone-500 border-stone-200',
+    gray:    'bg-surface-card-hover text-ink-600 border-border-subtle',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     amber:   'bg-amber-50 text-amber-600 border-amber-100',
     rose:    'bg-rose-50 text-rose-600 border-rose-100',
@@ -53,12 +53,12 @@ function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?
 }
 
 function Divider() {
-  return <div className="border-t border-[#E8E0CC]" />;
+  return <div className="border-t border-[var(--border-subtle)]" />;
 }
 
 function SectionLabel({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans">
+    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans">
       {icon && <span className="w-3.5 h-3.5 flex items-center justify-center">{icon}</span>}
       {children}
     </div>
@@ -215,17 +215,17 @@ export default function PayrollPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--surface-canvas)] flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-sm bg-stone-200 animate-pulse" />
-          <p className="text-sm text-stone-400 font-sans">Loading payroll…</p>
+          <div className="w-4 h-4 rounded-sm bg-surface-card-hover animate-pulse" />
+          <p className="text-sm text-ink-400 font-sans">Loading payroll…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] font-['Georgia',_serif] antialiased">
+    <div className="min-h-screen bg-[var(--surface-canvas)] font-['Georgia',_serif] antialiased">
 
       {/* ── Page header ── */}
       <div className="max-w-5xl mx-auto px-6 py-12">
@@ -233,32 +233,32 @@ export default function PayrollPage() {
         {/* Title block */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-1">
-            <Banknote className="w-3.5 h-3.5 text-stone-400" />
-            <span className="text-xs text-stone-400 font-sans">Payroll</span>
+            <Banknote className="w-3.5 h-3.5 text-ink-400" />
+            <span className="text-xs text-ink-400 font-sans">Payroll</span>
           </div>
-          <h1 className="text-4xl font-bold text-stone-900 tracking-tight leading-tight">
+          <h1 className="text-4xl font-bold text-ink-900 tracking-tight leading-tight">
             Payroll Ledger
           </h1>
-          <p className="text-stone-500 text-sm font-sans mt-1.5">
+          <p className="text-ink-600 text-sm font-sans mt-1.5">
             Process and track monthly salary disbursements for your team.
           </p>
         </div>
 
         {/* ── Summary metrics ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#DDD5C0] rounded-xl overflow-hidden border border-[#DDD5C0] mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--border-subtle)] rounded-xl overflow-hidden border border-[var(--border-subtle)] mb-8">
           {[
             { label: 'Total Employees', value: String(employees.length), icon: <Users className="w-3.5 h-3.5" />, sub: 'on payroll' },
             { label: 'Total Gross', value: `₹${totalGross.toLocaleString('en-IN')}`, icon: <IndianRupee className="w-3.5 h-3.5" />, sub: 'per month' },
             { label: 'Total Deductions', value: `₹${totalDeductions.toLocaleString('en-IN')}`, icon: <TrendingUp className="w-3.5 h-3.5" />, sub: 'EPF + ESIC + PT' },
             { label: 'Net Disbursement', value: `₹${totalNet.toLocaleString('en-IN')}`, icon: <Banknote className="w-3.5 h-3.5" />, sub: 'take-home total' },
           ].map((m) => (
-            <div key={m.label} className="bg-[#FDF8F0] px-5 py-5 flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 font-sans text-stone-400">
+            <div key={m.label} className="bg-[var(--surface-card)] px-5 py-5 flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 font-sans text-ink-400">
                 {m.icon}
                 <span className="text-[10px] font-semibold uppercase tracking-widest">{m.label}</span>
               </div>
-              <span className="text-2xl font-bold text-stone-900 font-sans tabular-nums leading-none">{m.value}</span>
-              <p className="text-[11px] text-stone-400 font-sans">{m.sub}</p>
+              <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none">{m.value}</span>
+              <p className="text-[11px] text-ink-400 font-sans">{m.sub}</p>
             </div>
           ))}
         </div>
@@ -278,7 +278,7 @@ export default function PayrollPage() {
         )}
 
         {/* ── View toggle ── */}
-        <div className="flex gap-0.5 bg-[#F0EAD9] p-1 rounded-lg border border-[#DDD5C0] w-fit mb-6">
+        <div className="flex gap-0.5 bg-[var(--surface-card-hover)] p-1 rounded-lg border border-[var(--border-subtle)] w-fit mb-6">
           {[
             { id: 'run', label: 'Run Payroll' },
             { id: 'history', label: `Ledger History (${Object.keys(ledgerByMonth).length})` },
@@ -288,8 +288,8 @@ export default function PayrollPage() {
               onClick={() => setActiveView(v.id as any)}
               className={`px-4 py-1.5 rounded-md text-xs font-sans font-medium cursor-pointer transition-all ${
                 activeView === v.id
-                  ? 'bg-[#FDF8F0] text-stone-900 border border-[#DDD5C0] shadow-sm'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-[var(--surface-card)] text-ink-900 border border-[var(--border-subtle)] shadow-sm'
+                  : 'text-ink-600 hover:text-ink-900'
               }`}
             >
               {v.label}
@@ -304,32 +304,32 @@ export default function PayrollPage() {
           <div className="space-y-5">
 
             {/* Controls bar */}
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
 
                 {/* Month selector */}
                 <div className="relative">
                   <button
                     onClick={() => setShowMonthPicker(!showMonthPicker)}
-                    className="flex items-center gap-2 text-sm font-sans font-medium text-stone-700 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 hover:bg-[#F0EAD9] transition-colors cursor-pointer"
+                    className="flex items-center gap-2 text-sm font-sans font-medium text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer"
                   >
-                    <FileText className="w-3.5 h-3.5 text-stone-400" />
+                    <FileText className="w-3.5 h-3.5 text-ink-400" />
                     {targetMonth}
-                    <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-ink-400" />
                   </button>
 
                   {showMonthPicker && (
-                    <div className="absolute top-full left-0 mt-1 z-20 bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl shadow-lg p-3 w-64">
+                    <div className="absolute top-full left-0 mt-1 z-20 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-lg p-3 w-64">
                       {/* Year selector */}
                       <div className="flex items-center justify-between mb-2 px-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans">Year</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans">Year</span>
                         <div className="flex gap-1">
                           {years.map((y) => (
                             <button
                               key={y}
                               onClick={() => setSelectedYear(y)}
                               className={`text-xs font-sans px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                                selectedYear === y ? 'bg-stone-900 text-stone-50' : 'text-stone-500 hover:bg-[#F0EAD9]'
+                                selectedYear === y ? 'bg-brand text-white' : 'text-ink-600 hover:bg-[var(--surface-card-hover)]'
                               }`}
                             >
                               {y}
@@ -347,8 +347,8 @@ export default function PayrollPage() {
                               onClick={() => { setSelectedMonth(val); setCustomMonth(''); setShowMonthPicker(false); }}
                               className={`text-xs font-sans py-1.5 rounded-lg cursor-pointer transition-colors ${
                                 targetMonth === val
-                                  ? 'bg-stone-900 text-stone-50 font-semibold'
-                                  : 'text-stone-600 hover:bg-[#F0EAD9]'
+                                  ? 'bg-brand text-white font-semibold'
+                                  : 'text-ink-600 hover:bg-[var(--surface-card-hover)]'
                               }`}
                             >
                               {m.slice(0, 3)}
@@ -363,7 +363,7 @@ export default function PayrollPage() {
                           placeholder="Or type custom e.g. Q1 2026"
                           value={customMonth}
                           onChange={(e) => setCustomMonth(e.target.value)}
-                          className="w-full text-xs font-sans text-stone-700 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-2.5 py-1.5 focus:outline-none placeholder:text-stone-300"
+                          className="w-full text-xs font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 focus:outline-none placeholder:text-ink-400"
                         />
                       </div>
                     </div>
@@ -372,13 +372,13 @@ export default function PayrollPage() {
 
                 {/* Search */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
                   <input
                     type="text"
                     placeholder="Search employees…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300 w-52"
+                    className="text-sm font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400 w-52"
                   />
                 </div>
               </div>
@@ -386,7 +386,7 @@ export default function PayrollPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-1.5 text-xs font-sans font-semibold text-stone-600 hover:text-stone-900 bg-[#F0EAD9] hover:bg-[#E8E0CC] border border-[#DDD5C0] px-3 py-2 rounded-lg transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-sans font-semibold text-ink-600 hover:text-ink-900 bg-[var(--surface-card-hover)] hover:bg-[var(--border-subtle)] border border-[var(--border-subtle)] px-3 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Export CSV
@@ -394,7 +394,7 @@ export default function PayrollPage() {
                 <button
                   onClick={handleDisburse}
                   disabled={processing || employees.length === 0}
-                  className="flex items-center gap-1.5 text-xs font-sans font-semibold bg-stone-900 hover:bg-stone-700 text-stone-50 px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 text-xs font-sans font-semibold bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <Banknote className="w-3.5 h-3.5" />
                   {processing ? 'Processing…' : `Disburse — ${targetMonth}`}
@@ -403,12 +403,12 @@ export default function PayrollPage() {
             </div>
 
             {/* Employee payroll table */}
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
 
               {/* Table header */}
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b border-[#DDD5C0] bg-[#F0EAD9]">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b border-[var(--border-subtle)] bg-[var(--surface-card-hover)]">
                 {['Employee', 'Gross', 'EPF', 'ESIC', 'Prof Tax', 'Net Take-Home'].map((h) => (
-                  <div key={h} className="px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans">
+                  <div key={h} className="px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans">
                     {h}
                   </div>
                 ))}
@@ -416,10 +416,10 @@ export default function PayrollPage() {
 
               {filtered.length === 0 ? (
                 <div className="py-16 text-center">
-                  <p className="text-sm text-stone-400 font-sans italic">No employees match your search.</p>
+                  <p className="text-sm text-ink-400 font-sans italic">No employees match your search.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8E0CC]">
+                <div className="divide-y divide-[var(--border-subtle)]">
                   {filtered.map((emp) => {
                     const b = calculateIndianPayrollBreakdown(emp.monthly_salary);
                     const isExpanded = expandedEmp === emp.id;
@@ -428,34 +428,34 @@ export default function PayrollPage() {
                       <div key={emp.id}>
                         {/* Main row */}
                         <div
-                          className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-0 hover:bg-[#F5F0E8] transition-colors cursor-pointer group"
+                          className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-0 hover:bg-[var(--surface-canvas)] transition-colors cursor-pointer group"
                           onClick={() => setExpandedEmp(isExpanded ? null : emp.id)}
                         >
                           {/* Employee */}
                           <div className="px-4 py-3.5 flex items-center gap-3">
                             <Avatar name={emp.full_name} />
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-stone-900 font-sans truncate">{emp.full_name}</p>
+                              <p className="text-sm font-semibold text-ink-900 font-sans truncate">{emp.full_name}</p>
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <Badge>{emp.employee_code}</Badge>
                                 {emp.department && <Badge color="teal">{emp.department}</Badge>}
                               </div>
                             </div>
                             {isExpanded
-                              ? <ChevronUp className="w-3.5 h-3.5 text-stone-400 ml-auto shrink-0" />
-                              : <ChevronDown className="w-3.5 h-3.5 text-stone-300 group-hover:text-stone-400 ml-auto shrink-0 transition-colors" />
+                              ? <ChevronUp className="w-3.5 h-3.5 text-ink-400 ml-auto shrink-0" />
+                              : <ChevronDown className="w-3.5 h-3.5 text-ink-400 group-hover:text-ink-400 ml-auto shrink-0 transition-colors" />
                             }
                           </div>
-                          <div className="px-4 py-3.5 flex items-center text-sm text-stone-700 font-sans tabular-nums">₹{b.gross.toLocaleString('en-IN')}</div>
-                          <div className="px-4 py-3.5 flex items-center text-sm text-stone-500 font-sans tabular-nums">₹{b.epf.toLocaleString('en-IN')}</div>
-                          <div className="px-4 py-3.5 flex items-center text-sm text-stone-500 font-sans tabular-nums">₹{b.esic.toLocaleString('en-IN')}</div>
-                          <div className="px-4 py-3.5 flex items-center text-sm text-stone-500 font-sans tabular-nums">₹{b.profTax.toLocaleString('en-IN')}</div>
+                          <div className="px-4 py-3.5 flex items-center text-sm text-ink-900 font-sans tabular-nums">₹{b.gross.toLocaleString('en-IN')}</div>
+                          <div className="px-4 py-3.5 flex items-center text-sm text-ink-600 font-sans tabular-nums">₹{b.epf.toLocaleString('en-IN')}</div>
+                          <div className="px-4 py-3.5 flex items-center text-sm text-ink-600 font-sans tabular-nums">₹{b.esic.toLocaleString('en-IN')}</div>
+                          <div className="px-4 py-3.5 flex items-center text-sm text-ink-600 font-sans tabular-nums">₹{b.profTax.toLocaleString('en-IN')}</div>
                           <div className="px-4 py-3.5 flex items-center text-sm font-semibold text-emerald-700 font-sans tabular-nums">₹{b.netHome.toLocaleString('en-IN')}</div>
                         </div>
 
                         {/* Expanded breakdown */}
                         {isExpanded && (
-                          <div className="bg-[#F5F0E8] border-t border-[#E8E0CC] px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          <div className="bg-[var(--surface-canvas)] border-t border-[var(--border-subtle)] px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div className="space-y-3">
                               <SectionLabel>Statutory Deductions</SectionLabel>
                               <div className="space-y-2">
@@ -466,10 +466,10 @@ export default function PayrollPage() {
                                 ].map((d) => (
                                   <div key={d.label} className="flex items-center justify-between">
                                     <div>
-                                      <p className="text-xs font-sans text-stone-700">{d.label}</p>
-                                      <p className="text-[10px] text-stone-400 font-sans italic">{d.note}</p>
+                                      <p className="text-xs font-sans text-ink-900">{d.label}</p>
+                                      <p className="text-[10px] text-ink-400 font-sans italic">{d.note}</p>
                                     </div>
-                                    <span className="text-sm font-semibold text-stone-700 font-sans tabular-nums">
+                                    <span className="text-sm font-semibold text-ink-900 font-sans tabular-nums">
                                       − ₹{d.value.toLocaleString('en-IN')}
                                     </span>
                                   </div>
@@ -479,15 +479,15 @@ export default function PayrollPage() {
 
                             <div className="space-y-3">
                               <SectionLabel>Summary</SectionLabel>
-                              <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-lg divide-y divide-[#E8E0CC]">
+                              <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg divide-y divide-[var(--border-subtle)]">
                                 {[
                                   { label: 'Gross Salary', value: `₹${b.gross.toLocaleString('en-IN')}`, bold: false },
                                   { label: 'Total Deductions', value: `− ₹${(b.epf + b.esic + b.profTax).toLocaleString('en-IN')}`, bold: false, muted: true },
                                   { label: 'Net Take-Home', value: `₹${b.netHome.toLocaleString('en-IN')}`, bold: true },
                                 ].map((row) => (
                                   <div key={row.label} className="px-3 py-2.5 flex justify-between items-center">
-                                    <span className={`text-xs font-sans ${row.bold ? 'font-semibold text-stone-900' : 'text-stone-500'}`}>{row.label}</span>
-                                    <span className={`text-sm font-sans tabular-nums ${row.bold ? 'font-bold text-emerald-700' : row.muted ? 'text-rose-600' : 'text-stone-700'}`}>
+                                    <span className={`text-xs font-sans ${row.bold ? 'font-semibold text-ink-900' : 'text-ink-600'}`}>{row.label}</span>
+                                    <span className={`text-sm font-sans tabular-nums ${row.bold ? 'font-bold text-emerald-700' : row.muted ? 'text-rose-600' : 'text-ink-900'}`}>
                                       {row.value}
                                     </span>
                                   </div>
@@ -496,11 +496,11 @@ export default function PayrollPage() {
 
                               {/* Banking info */}
                               {(emp.bank_account_number || emp.ifsc_code) && (
-                                <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-lg px-3 py-2.5 space-y-1">
+                                <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 space-y-1">
                                   <SectionLabel>Bank Details</SectionLabel>
-                                  <p className="text-xs font-sans text-stone-600 mt-1">
+                                  <p className="text-xs font-sans text-ink-600 mt-1">
                                     {emp.bank_account_number || '—'}
-                                    {emp.ifsc_code && <span className="ml-2 text-stone-400">· {emp.ifsc_code}</span>}
+                                    {emp.ifsc_code && <span className="ml-2 text-ink-400">· {emp.ifsc_code}</span>}
                                   </p>
                                 </div>
                               )}
@@ -517,8 +517,8 @@ export default function PayrollPage() {
               {filtered.length > 0 && (
                 <>
                   <Divider />
-                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] bg-[#F0EAD9]">
-                    <div className="px-4 py-3 text-xs font-semibold text-stone-500 font-sans">
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] bg-[var(--surface-card-hover)]">
+                    <div className="px-4 py-3 text-xs font-semibold text-ink-600 font-sans">
                       {filtered.length} employee{filtered.length !== 1 ? 's' : ''}
                     </div>
                     {[
@@ -528,7 +528,7 @@ export default function PayrollPage() {
                       filtered.reduce((s, e) => s + calculateIndianPayrollBreakdown(e.monthly_salary).profTax, 0),
                       filtered.reduce((s, e) => s + calculateIndianPayrollBreakdown(e.monthly_salary).netHome, 0),
                     ].map((val, i) => (
-                      <div key={i} className={`px-4 py-3 text-sm font-bold font-sans tabular-nums ${i === 4 ? 'text-emerald-700' : 'text-stone-700'}`}>
+                      <div key={i} className={`px-4 py-3 text-sm font-bold font-sans tabular-nums ${i === 4 ? 'text-emerald-700' : 'text-ink-900'}`}>
                         ₹{val.toLocaleString('en-IN')}
                       </div>
                     ))}
@@ -545,12 +545,12 @@ export default function PayrollPage() {
         {activeView === 'history' && (
           <div className="space-y-4">
             {Object.keys(ledgerByMonth).length === 0 ? (
-              <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl py-20 text-center">
-                <Banknote className="w-8 h-8 text-stone-300 mx-auto mb-3" />
-                <p className="text-sm text-stone-400 font-sans italic">No payroll cycles processed yet.</p>
+              <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl py-20 text-center">
+                <Banknote className="w-8 h-8 text-ink-400 mx-auto mb-3" />
+                <p className="text-sm text-ink-400 font-sans italic">No payroll cycles processed yet.</p>
                 <button
                   onClick={() => setActiveView('run')}
-                  className="mt-4 text-xs font-sans font-semibold text-stone-600 hover:text-stone-900 underline underline-offset-2 cursor-pointer"
+                  className="mt-4 text-xs font-sans font-semibold text-ink-600 hover:text-ink-900 underline underline-offset-2 cursor-pointer"
                 >
                   Run your first payroll →
                 </button>
@@ -561,27 +561,27 @@ export default function PayrollPage() {
                 const monthNet = rows.reduce((s: number, r: any) => s + Number(r.net_take_home), 0);
 
                 return (
-                  <div key={month} className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+                  <div key={month} className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
                     {/* Month header */}
-                    <div className="px-5 py-4 flex items-center justify-between border-b border-[#E8E0CC] bg-[#F5F0E8]">
+                    <div className="px-5 py-4 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-canvas)]">
                       <div className="flex items-center gap-3">
                         <SectionLabel icon={<FileText className="w-3.5 h-3.5" />}>{month}</SectionLabel>
                         <Badge color="emerald">{rows.length} employees</Badge>
                       </div>
                       <div className="flex items-center gap-4 text-xs font-sans">
-                        <span className="text-stone-500">Gross <span className="font-semibold text-stone-700 tabular-nums">₹{monthGross.toLocaleString('en-IN')}</span></span>
-                        <span className="text-stone-500">Net <span className="font-bold text-emerald-700 tabular-nums">₹{monthNet.toLocaleString('en-IN')}</span></span>
+                        <span className="text-ink-600">Gross <span className="font-semibold text-ink-900 tabular-nums">₹{monthGross.toLocaleString('en-IN')}</span></span>
+                        <span className="text-ink-600">Net <span className="font-bold text-emerald-700 tabular-nums">₹{monthNet.toLocaleString('en-IN')}</span></span>
                       </div>
                     </div>
 
                     {/* Rows */}
-                    <div className="divide-y divide-[#E8E0CC]">
+                    <div className="divide-y divide-[var(--border-subtle)]">
                       {(rows as any[]).map((row: any) => (
-                        <div key={row.id} className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-[#F0EAD9] transition-colors">
+                        <div key={row.id} className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-[var(--surface-card-hover)] transition-colors">
                           <div className="flex items-center gap-3 min-w-0">
                             <Avatar name={row.employee_name} />
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-stone-900 font-sans truncate">{row.employee_name}</p>
+                              <p className="text-sm font-semibold text-ink-900 font-sans truncate">{row.employee_name}</p>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <Badge>{row.employee_code}</Badge>
                                 {row.department && <Badge color="teal">{row.department}</Badge>}
@@ -590,11 +590,11 @@ export default function PayrollPage() {
                           </div>
                           <div className="flex items-center gap-6 shrink-0 text-right">
                             <div>
-                              <p className="text-[10px] text-stone-400 font-sans uppercase tracking-wider">Gross</p>
-                              <p className="text-sm text-stone-700 font-sans tabular-nums">₹{Number(row.gross_salary).toLocaleString('en-IN')}</p>
+                              <p className="text-[10px] text-ink-400 font-sans uppercase tracking-wider">Gross</p>
+                              <p className="text-sm text-ink-900 font-sans tabular-nums">₹{Number(row.gross_salary).toLocaleString('en-IN')}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] text-stone-400 font-sans uppercase tracking-wider">Net</p>
+                              <p className="text-[10px] text-ink-400 font-sans uppercase tracking-wider">Net</p>
                               <p className="text-sm font-bold text-emerald-700 font-sans tabular-nums">₹{Number(row.net_take_home).toLocaleString('en-IN')}</p>
                             </div>
                             <Badge color={row.status === 'paid' ? 'emerald' : 'amber'}>

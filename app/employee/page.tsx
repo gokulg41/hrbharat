@@ -205,51 +205,47 @@ export default function EmployeeTerminalDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-[#9b9a97]">Loading...</p>
+      <div className="min-h-screen bg-surface-canvas flex items-center justify-center">
+        <p className="text-sm text-ink-600">Loading...</p>
       </div>
     );
   }
 
-  // ── Notion-style design tokens ─────────────────────────────────────────
-  // Background: #ffffff  Surface: #f7f6f3  Border: #e9e9e7
-  // Text primary: #37352f  Text secondary: #787774  Text muted: #9b9a97
-  // Accent: #2eaadc (Notion blue)  Hover bg: #f1f1ef
-
+  // ── Shared design tokens (globals.css / tailwind.config.mjs) ────────────
   const inputClass =
-    "w-full text-sm px-2 py-1.5 border border-[#e9e9e7] rounded-md bg-white text-[#37352f] placeholder:text-[#c1c0bb] focus:outline-none focus:ring-2 focus:ring-[#2eaadc]/30 focus:border-[#2eaadc] transition-all";
+    "w-full text-sm px-2 py-1.5 border border-border-subtle rounded-md bg-surface-card text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all";
 
   const labelClass =
-    "block text-xs font-medium text-[#787774] mb-1";
+    "block text-xs font-medium text-ink-600 mb-1";
 
   const sectionTitleClass =
-    "flex items-center gap-2 text-xs font-semibold text-[#9b9a97] uppercase tracking-widest mb-4";
+    "flex items-center gap-2 text-xs font-semibold text-ink-600 uppercase tracking-widest mb-4";
 
   const notionBtn =
-    "inline-flex items-center justify-center gap-1.5 text-sm font-medium text-white bg-[#37352f] hover:bg-[#2d2c28] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-md transition-colors cursor-pointer";
+    "inline-flex items-center justify-center gap-1.5 text-sm font-medium text-white bg-brand hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-md transition-colors cursor-pointer";
 
   const notionBtnSmall =
-    "inline-flex items-center gap-1 text-xs font-medium text-white bg-[#37352f] hover:bg-[#2d2c28] disabled:opacity-40 px-3 py-1.5 rounded-md transition-colors cursor-pointer";
+    "inline-flex items-center gap-1 text-xs font-medium text-white bg-brand hover:bg-brand-hover disabled:opacity-40 px-3 py-1.5 rounded-md transition-colors cursor-pointer";
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#37352f]">
+    <div className="min-h-screen bg-surface-canvas font-sans text-ink-900">
 
       {/* ── SIDEBAR-STYLE TOP BAR ── */}
-      <header className="border-b border-[#e9e9e7] bg-white sticky top-0 z-40">
+      <header className="border-b border-border-subtle bg-surface-canvas sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-8 h-12 flex items-center justify-between">
           {/* Breadcrumb-style identity */}
-          <div className="flex items-center gap-1.5 text-sm text-[#787774]">
-            <div className="w-5 h-5 rounded bg-[#37352f] flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-1.5 text-sm text-ink-600">
+            <div className="w-5 h-5 rounded bg-brand flex items-center justify-center shrink-0">
               <span className="text-white text-[8px] font-bold">HB</span>
             </div>
-            <span className="text-[#c1c0bb]">/</span>
-            <span className="font-medium text-[#37352f]">{companyName || 'Workspace'}</span>
-            <span className="text-[#c1c0bb]">/</span>
-            <span className="text-[#787774]">{employee?.full_name || 'Employee'}</span>
+            <span className="text-ink-400">/</span>
+            <span className="font-medium text-ink-900">{companyName || 'Workspace'}</span>
+            <span className="text-ink-400">/</span>
+            <span className="text-ink-600">{employee?.full_name || 'Employee'}</span>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs text-[#9b9a97] hover:text-[#37352f] hover:bg-[#f1f1ef] px-2 py-1 rounded transition-all cursor-pointer"
+            className="flex items-center gap-1.5 text-xs text-ink-600 hover:text-ink-900 hover:bg-surface-card-hover px-2 py-1 rounded transition-all cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign out
@@ -261,43 +257,43 @@ export default function EmployeeTerminalDashboard() {
 
         {/* ── PAGE TITLE ── */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#37352f]">
+          <h1 className="text-3xl font-bold tracking-tight text-ink-900">
             {employee?.full_name || 'Employee Portal'}
           </h1>
-          <p className="mt-1 text-sm text-[#9b9a97]">
+          <p className="mt-1 text-sm text-ink-600">
             {employee?.designation || 'Team Member'} · {employee?.department || 'Operations'} · {employee?.employee_code}
           </p>
         </div>
 
         {/* ── STATUS TOAST ── */}
         {statusMessage && (
-          <div className={`text-sm px-4 py-2.5 rounded-md border ${
+          <div className={`text-sm px-4 py-2.5 rounded-md ${
             statusMessage.type === 'success'
-              ? 'bg-[#edfbf3] border-[#b7ebcf] text-[#0f7b43]'
-              : 'bg-[#fdecea] border-[#f5c0bb] text-[#d44c47]'
+              ? 'bg-status-success-bg text-status-success'
+              : 'bg-status-danger-bg text-status-danger'
           }`}>
             {statusMessage.text}
           </div>
         )}
 
         {/* ── STAT CALLOUTS ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-[#e9e9e7] rounded-lg overflow-hidden border border-[#e9e9e7]">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border-subtle rounded-lg overflow-hidden border border-border-subtle">
           {[
             { label: 'Role', value: employee?.designation || 'Consultant', sub: employee?.department || 'Operations', big: false },
             { label: 'Sick Leave', value: employee?.sick_leave_balance ?? 12, sub: 'days remaining', big: true },
             { label: 'Casual Leave', value: employee?.casual_leave_balance ?? 12, sub: 'days remaining', big: true },
             { label: 'Paid Leave', value: employee?.paid_leave_balance ?? 18, sub: 'days remaining', big: true },
           ].map((stat, i) => (
-            <div key={i} className="bg-white px-5 py-4">
-              <p className="text-xs text-[#9b9a97] mb-1">{stat.label}</p>
-              <p className={`font-semibold text-[#37352f] truncate ${stat.big ? 'text-2xl' : 'text-sm'}`}>{stat.value}</p>
-              <p className="text-xs text-[#c1c0bb] mt-0.5 truncate">{stat.sub}</p>
+            <div key={i} className="bg-surface-card px-5 py-4">
+              <p className="text-xs text-ink-600 mb-1">{stat.label}</p>
+              <p className={`font-semibold text-ink-900 truncate ${stat.big ? 'text-2xl' : 'text-sm'}`}>{stat.value}</p>
+              <p className="text-xs text-ink-400 mt-0.5 truncate">{stat.sub}</p>
             </div>
           ))}
         </div>
 
         {/* ── DIVIDER ── */}
-        <hr className="border-[#e9e9e7]" />
+        <hr className="border-border-subtle" />
 
         {/* ── TASKS + EOD ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -309,17 +305,17 @@ export default function EmployeeTerminalDashboard() {
             {assignedTasks && assignedTasks.task_priorities?.length > 0 ? (
               <ul className="space-y-1.5">
                 {assignedTasks.task_priorities.map((task: string, idx: number) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-[#37352f] hover:bg-[#f7f6f3] px-2 py-2 rounded-md transition-colors">
-                    <span className="mt-0.5 w-4 h-4 rounded-sm border-2 border-[#e9e9e7] bg-white shrink-0 flex items-center justify-center">
-                      <span className="text-[8px] font-bold text-[#9b9a97]">{idx + 1}</span>
+                  <li key={idx} className="flex items-start gap-3 text-sm text-ink-900 hover:bg-surface-card-hover px-2 py-2 rounded-md transition-colors">
+                    <span className="mt-0.5 w-4 h-4 rounded-sm border-2 border-border-subtle bg-surface-card shrink-0 flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-ink-600">{idx + 1}</span>
                     </span>
                     {task}
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="py-8 text-center rounded-md border border-dashed border-[#e9e9e7]">
-                <p className="text-sm text-[#c1c0bb]">No tasks assigned for today</p>
+              <div className="py-8 text-center rounded-md border border-dashed border-border-subtle">
+                <p className="text-sm text-ink-400">No tasks assigned for today</p>
               </div>
             )}
           </div>
@@ -336,7 +332,7 @@ export default function EmployeeTerminalDashboard() {
                 value={eodText}
                 onChange={e => setEodText(e.target.value)}
                 placeholder="What did you complete today? Add any blockers or notes..."
-                className="w-full text-sm px-3 py-2.5 border border-[#e9e9e7] rounded-md bg-white text-[#37352f] placeholder:text-[#c1c0bb] focus:outline-none focus:ring-2 focus:ring-[#2eaadc]/30 focus:border-[#2eaadc] transition-all resize-none"
+                className="w-full text-sm px-3 py-2.5 border border-border-subtle rounded-md bg-surface-card text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all resize-none"
               />
               <div className="flex justify-end">
                 <button type="submit" disabled={submittingEod} className={notionBtnSmall}>
@@ -348,7 +344,7 @@ export default function EmployeeTerminalDashboard() {
           </div>
         </div>
 
-        <hr className="border-[#e9e9e7]" />
+        <hr className="border-border-subtle" />
 
         {/* ── PAY SLIPS ── */}
         {myPaySlips.length > 0 && (
@@ -358,18 +354,18 @@ export default function EmployeeTerminalDashboard() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {myPaySlips.map((slip) => (
-                <div key={slip.id} className="border border-[#e9e9e7] rounded-md px-4 py-4 hover:bg-[#f7f6f3] transition-colors">
+                <div key={slip.id} className="border border-border-subtle rounded-md px-4 py-4 hover:bg-surface-card-hover transition-colors">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-semibold text-[#37352f]">{slip.month_year}</span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#0f7b43] bg-[#edfbf3] border border-[#b7ebcf] px-2 py-0.5 rounded-full">
+                    <span className="text-sm font-semibold text-ink-900">{slip.month_year}</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-status-success bg-status-success-bg px-2 py-0.5 rounded-full">
                       <ShieldCheck className="w-3 h-3" /> Confirmed
                     </span>
                   </div>
-                  <div className="space-y-1 text-xs border-t border-[#e9e9e7] pt-3">
-                    <div className="flex justify-between"><span className="text-[#787774]">Gross Salary</span><span className="font-medium text-[#37352f]">₹{Number(slip.gross_salary).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between"><span className="text-[#9b9a97]">EPF (12%)</span><span className="text-[#9b9a97]">−₹{Number(slip.epf_deduction).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between"><span className="text-[#9b9a97]">ESIC (0.75%)</span><span className="text-[#9b9a97]">−₹{Number(slip.esic_deduction).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between pt-2 border-t border-[#e9e9e7] text-sm font-semibold text-[#37352f]">
+                  <div className="space-y-1 text-xs border-t border-border-subtle pt-3">
+                    <div className="flex justify-between"><span className="text-ink-600">Gross Salary</span><span className="font-medium text-ink-900">₹{Number(slip.gross_salary).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-ink-600">EPF (12%)</span><span className="text-ink-600">−₹{Number(slip.epf_deduction).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between"><span className="text-ink-600">ESIC (0.75%)</span><span className="text-ink-600">−₹{Number(slip.esic_deduction).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between pt-2 border-t border-border-subtle text-sm font-semibold text-ink-900">
                       <span>Net Take-Home</span><span>₹{Number(slip.net_take_home).toLocaleString('en-IN')}</span>
                     </div>
                   </div>
@@ -379,7 +375,7 @@ export default function EmployeeTerminalDashboard() {
           </div>
         )}
 
-        <hr className="border-[#e9e9e7]" />
+        <hr className="border-border-subtle" />
 
         {/* ── FORMS + FEED GRID ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
@@ -479,8 +475,8 @@ export default function EmployeeTerminalDashboard() {
                   <label className={labelClass}>Mobile Number</label>
                   <input type="tel" value={accountPhone} onChange={e => setAccountPhone(e.target.value)} placeholder="+91 98000 00000" className={inputClass} />
                 </div>
-                <div className="p-3 bg-[#f7f6f3] rounded-md border border-[#e9e9e7] space-y-2">
-                  <p className="text-[10px] font-semibold text-[#9b9a97] uppercase tracking-wider flex items-center gap-1.5">
+                <div className="p-3 bg-surface-card-hover rounded-md border border-border-subtle space-y-2">
+                  <p className="text-[10px] font-semibold text-ink-600 uppercase tracking-wider flex items-center gap-1.5">
                     <Landmark className="w-3 h-3" /> Bank Details
                   </p>
                   <input type="text" value={accountBankNum} onChange={e => setAccountBankNum(e.target.value)} placeholder="Account number" className={inputClass} />

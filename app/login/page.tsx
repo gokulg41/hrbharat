@@ -10,10 +10,10 @@ import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import Link from 'next/link';
 
-// Strict schema validation definition
+// Login form schema
 const loginSchema = zod.object({
-  email: zod.string().email('Invalid email structure definition'),
-  password: zod.string().min(1, 'Password field required execution validation data'),
+  email: zod.string().email('Enter a valid email address.'),
+  password: zod.string().min(1, 'Password is required.'),
 });
 
 type LoginValues = zod.infer<typeof loginSchema>;
@@ -22,8 +22,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  // UI Tab State (Visual tracking helper for user clarity)
+
+  // Which login tab is active
   const [loginType, setLoginType] = useState<'owner' | 'employee'>('owner');
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
@@ -46,7 +46,7 @@ export default function LoginPage() {
       return;
     }
 
-    // 2. Dynamic Authorization Routing Split Engine
+    // 2. Route the user based on their role
     if (authData.user) {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -55,7 +55,7 @@ export default function LoginPage() {
         .single();
 
       if (profileError || !profile) {
-        setError("Could not retrieve your structural account profile details.");
+        setError("We couldn't load your account profile. Please try again.");
         setLoading(false);
         return;
       }
@@ -65,59 +65,59 @@ export default function LoginPage() {
 
       // 3. Forward users based strictly on their true database parameters
       if (normalizedRole === 'admin' || normalizedRole === 'owner' || normalizedRole === 'manager') {
-        // Management core goes straight to the primary administration control deck
+        // Management roles go to the admin dashboard
         router.push('/admin/dashboard');
       } else if (normalizedRole === 'employee') {
-        // Standard workforce personnel drop right into the punch-clock terminal layout
+        // Employees go to their self-service portal
         router.push('/employee');
       } else {
-        // Fallback safety boundary wall
-        setError(`Unauthorized terminal workspace target for role: ${profile.role}`);
+        // Fallback safety boundary
+        setError(`No portal is configured for the role: ${profile.role}`);
         setLoading(false);
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans antialiased selection:bg-teal-700 selection:text-white">
+    <div className="min-h-screen bg-surface-canvas flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans antialiased selection:bg-brand selection:text-white">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Access HRBharat</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Sign into your secure corporate portal framework
+        <h2 className="text-3xl font-extrabold text-ink-900 tracking-tight">Access HRBharat</h2>
+        <p className="mt-2 text-sm text-ink-600">
+          Sign in to your account
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 border border-slate-200 shadow rounded-3xl sm:px-10">
+        <div className="bg-surface-card py-8 px-4 border border-border-subtle shadow rounded-3xl sm:px-10">
           
-          {/* SLIDING ROLE INTERFACE SELECTOR TRACK */}
-          <div className="bg-slate-100 p-1 rounded-2xl flex items-center mb-6 border border-slate-200">
+          {/* ROLE TAB SELECTOR */}
+          <div className="bg-surface-card-hover p-1 rounded-2xl flex items-center mb-6 border border-border-subtle">
             <button
               type="button"
               onClick={() => { setLoginType('owner'); setError(null); }}
               className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-200 ${
                 loginType === 'owner' 
-                  ? 'bg-white text-teal-700 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-surface-card text-brand shadow-sm' 
+                  : 'text-ink-600 hover:text-ink-900'
               }`}
             >
-              💼 Employer / Admin
+              Employer / Admin
             </button>
             <button
               type="button"
               onClick={() => { setLoginType('employee'); setError(null); }}
               className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-200 ${
                 loginType === 'employee' 
-                  ? 'bg-white text-teal-700 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-surface-card text-brand shadow-sm' 
+                  : 'text-ink-600 hover:text-ink-900'
               }`}
             >
-              🏃 Employee Portal
+              Employee Portal
             </button>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-xs font-bold text-red-600 rounded-xl animate-in fade-in duration-200">
+            <div className="mb-4 p-3 bg-status-danger-bg text-xs font-bold text-status-danger rounded-xl animate-in fade-in duration-200">
               {error}
             </div>
           )}
@@ -126,13 +126,13 @@ export default function LoginPage() {
             <Input label="Registered Corporate Email" type="email" {...register('email')} error={errors.email?.message} />
             <Input label="Account Password" type="password" {...register('password')} error={errors.password?.message} />
             
-            <Button type="submit" disabled={loading} className="mt-6 w-full py-3 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl transition-all shadow-md">
-              {loading ? 'Validating Token Handshake...' : 'Verify & Launch Workspace'}
+            <Button type="submit" disabled={loading} className="mt-6 w-full py-3 bg-brand hover:bg-brand-hover text-white font-bold rounded-xl transition-all shadow-md">
+              {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-slate-500 font-medium">
-            New organization setup? <Link href="/register" className="text-teal-700 font-bold hover:underline">Create Account</Link>
+          <p className="mt-6 text-center text-xs text-ink-600 font-medium">
+            New organization setup? <Link href="/register" className="text-brand font-bold hover:underline">Create Account</Link>
           </p>
         </div>
       </div>

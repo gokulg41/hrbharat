@@ -2,24 +2,42 @@
 
 @layer base {
   :root {
-     --studio-canvas: #ffffff;
-     --ink-onyx: #111318;
-    --text-muted: #8a95a3;
-    --card-bg-solid: #1a1d24;
-    --card-bg-hover: #1f2330;
-    --border-ultra-thin: rgba(240, 242, 245, 0.07);
-    --border-thin-hover: rgba(240, 242, 245, 0.16);
-    --dark-terminal-bg: #0c0e12;
-    --dark-terminal-border: rgba(240, 242, 245, 0.05);
-    --dark-terminal-text: #e8ecf0;
-    --shadow-luxury-xs: 0 1px 3px rgba(0, 0, 0, 0.4);
+    /* Surfaces */
+    --surface-canvas: #f8fafc;
+    --surface-card: #ffffff;
+    --surface-card-hover: #f1f5f9;
+
+    /* Text */
+    --ink-900: #0f172a;
+    --ink-600: #475569;
+    --ink-400: #94a3b8;
+
+    /* Brand */
+    --brand-primary: #1e40af;
+    --brand-primary-hover: #1e3a8a;
+    --brand-primary-subtle: #eff6ff;
+
+    /* Borders */
+    --border-subtle: #e2e8f0;
+    --border-hover: #cbd5e1;
+
+    /* Status */
+    --status-success: #15803d;
+    --status-success-bg: #f0fdf4;
+    --status-warning: #b45309;
+    --status-warning-bg: #fffbeb;
+    --status-danger: #b91c1c;
+    --status-danger-bg: #fef2f2;
+
+    /* Shadow */
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.06);
   }
 }
 
 html,
 body {
-  background-color: var(--studio-canvas);
-  color: var(--ink-onyx);
+  background-color: var(--surface-canvas);
+  color: var(--ink-900);
 
   /* Uses the font variables from next/font */
   font-family: var(--font-sans);
@@ -32,7 +50,7 @@ body {
   padding: 0;
 }
 
-/* IBM Plex Mono */
+/* IBM Plex Mono — kept for data/tabular figures (payroll, ids, amounts) */
 code,
 pre,
 kbd,
@@ -41,7 +59,7 @@ samp,
   font-family: var(--font-mono);
 }
 
-/* Low-profile dark mode scrollbar */
+/* Low-profile scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -52,12 +70,12 @@ samp,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(240, 242, 245, 0.1);
+  background: var(--border-hover);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(240, 242, 245, 0.22);
+  background: var(--ink-400);
 }
 
 /* Form inputs */
@@ -65,17 +83,17 @@ input,
 select,
 textarea {
   font-family: var(--font-sans);
-  color: #0f1117 !important;
-  background-color: #ffffff !important;
+  color: var(--ink-900) !important;
+  background-color: var(--surface-card) !important;
 }
 
 label {
-  color: #2d3440 !important;
+  color: var(--ink-600) !important;
   font-weight: 500;
   letter-spacing: 0.01em;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #8a95a3 !important;
+  color: var(--ink-400) !important;
 }

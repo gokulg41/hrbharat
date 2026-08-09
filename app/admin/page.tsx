@@ -34,15 +34,15 @@ import {
    Design tokens
 ───────────────────────────────────────────── */
 const C = {
-  bg: '#F5F0E8',
-  surface: '#FDF8F0',
-  surfaceHover: '#F0EAD9',
-  border: '#DDD5C0',
-  borderLight: '#E8E0CC',
-  text: '#1C1917',
-  muted: '#78716C',
-  faint: '#A8A29E',
-  input: '#FAF5EB',
+  bg: 'var(--surface-canvas)',
+  surface: 'var(--surface-card)',
+  surfaceHover: 'var(--surface-card-hover)',
+  border: 'var(--border-subtle)',
+  borderLight: 'var(--border-subtle)',
+  text: 'var(--ink-900)',
+  muted: 'var(--ink-600)',
+  faint: 'var(--ink-400)',
+  input: 'var(--surface-card)',
 };
 
 /* ─────────────────────────────────────────────
@@ -65,7 +65,7 @@ function Avatar({ name }: { name: string }) {
 
 function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
   const map: Record<string, string> = {
-    gray: 'bg-stone-100 text-stone-500',
+    gray: 'bg-surface-card-hover text-ink-600',
     amber: 'bg-amber-50 text-amber-600',
     teal: 'bg-teal-50 text-teal-700',
     rose: 'bg-rose-50 text-rose-600',
@@ -80,7 +80,7 @@ function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?
 
 function SectionLabel({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans mb-3">
+    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans mb-3">
       {icon && <span className="w-3.5 h-3.5 flex items-center justify-center">{icon}</span>}
       {children}
     </div>
@@ -89,7 +89,7 @@ function SectionLabel({ icon, children }: { icon?: React.ReactNode; children: Re
 
 function FormLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <label className="block text-[10px] font-semibold uppercase tracking-wider text-stone-500 font-sans mb-1">
+    <label className="block text-[10px] font-semibold uppercase tracking-wider text-ink-600 font-sans mb-1">
       {children}{required && <span className="text-rose-400 ml-0.5">*</span>}
     </label>
   );
@@ -99,21 +99,21 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300 ${props.className ?? ''}`}
+      className={`w-full text-sm font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400 ${props.className ?? ''}`}
     />
   );
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden ${className}`}>
+    <div className={`bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden ${className}`}>
       {children}
     </div>
   );
 }
 
 function Divider() {
-  return <div className="border-t border-[#E8E0CC]" />;
+  return <div className="border-t border-[var(--border-subtle)]" />;
 }
 
 /* ─────────────────────────────────────────────
@@ -318,10 +318,10 @@ export default function PremiumAdminUnifiedDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--surface-canvas)] flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-sm bg-stone-200 animate-pulse" />
-          <p className="text-sm text-stone-400 font-sans">Loading workspace…</p>
+          <div className="w-4 h-4 rounded-sm bg-surface-card-hover animate-pulse" />
+          <p className="text-sm text-ink-400 font-sans">Loading workspace…</p>
         </div>
       </div>
     );
@@ -334,33 +334,33 @@ export default function PremiumAdminUnifiedDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] font-['Georgia',_serif] antialiased">
+    <div className="min-h-screen bg-[var(--surface-canvas)] font-['Georgia',_serif] antialiased">
 
       {/* ── Top bar ── */}
-      <header className="sticky top-0 z-40 bg-[#FDF8F0]/90 backdrop-blur border-b border-[#DDD5C0] px-6 py-3 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-[var(--surface-card)]/90 backdrop-blur border-b border-[var(--border-subtle)] px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-stone-100" />
+          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+            <Building2 className="w-4 h-4 text-ink-400" />
           </div>
           <div>
-            <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-stone-400 flex items-center gap-1.5">
+            <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 flex items-center gap-1.5">
               {companyName}
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             </p>
-            <h1 className="text-sm font-semibold text-stone-900 leading-tight">Admin Workspace</h1>
+            <h1 className="text-sm font-semibold text-ink-900 leading-tight">Admin Workspace</h1>
           </div>
         </div>
 
         {/* Nav tabs */}
-        <nav className="flex gap-0.5 bg-[#F0EAD9] p-1 rounded-lg border border-[#DDD5C0]">
+        <nav className="flex gap-0.5 bg-[var(--surface-card-hover)] p-1 rounded-lg border border-[var(--border-subtle)]">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setCurrentSection(item.id as any)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-sans font-medium cursor-pointer transition-all ${
                 currentSection === item.id
-                  ? 'bg-[#FDF8F0] text-stone-900 shadow-sm border border-[#DDD5C0]'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-[var(--surface-card)] text-ink-900 shadow-sm border border-[var(--border-subtle)]'
+                  : 'text-ink-600 hover:text-ink-900'
               }`}
             >
               {item.icon}
@@ -395,19 +395,19 @@ export default function PremiumAdminUnifiedDashboard() {
           <div className="space-y-6">
 
             {/* Metric strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#DDD5C0] rounded-xl overflow-hidden border border-[#DDD5C0]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--border-subtle)] rounded-xl overflow-hidden border border-[var(--border-subtle)]">
               {[
                 { label: 'Active Roster', value: String(employees.length), icon: <Users className="w-3.5 h-3.5" />, accent: 'text-teal-600' },
                 { label: 'Monthly Payroll', value: `₹${totalPayrollLiability.toLocaleString('en-IN')}`, icon: <DollarSign className="w-3.5 h-3.5" />, accent: 'text-emerald-600' },
-                { label: 'Pending Reviews', value: String(leaveRequests.length + advanceRequests.length + regularizations.length), icon: <Briefcase className="w-3.5 h-3.5" />, accent: leaveRequests.length + advanceRequests.length + regularizations.length > 0 ? 'text-amber-600' : 'text-stone-400' },
-                { label: 'Attendance Rate', value: `${currentAttendanceRate}%`, icon: <Activity className="w-3.5 h-3.5" />, accent: 'text-stone-500' },
+                { label: 'Pending Reviews', value: String(leaveRequests.length + advanceRequests.length + regularizations.length), icon: <Briefcase className="w-3.5 h-3.5" />, accent: leaveRequests.length + advanceRequests.length + regularizations.length > 0 ? 'text-amber-600' : 'text-ink-400' },
+                { label: 'Attendance Rate', value: `${currentAttendanceRate}%`, icon: <Activity className="w-3.5 h-3.5" />, accent: 'text-ink-600' },
               ].map((m) => (
-                <div key={m.label} className="bg-[#FDF8F0] px-5 py-5 flex flex-col gap-2">
+                <div key={m.label} className="bg-[var(--surface-card)] px-5 py-5 flex flex-col gap-2">
                   <div className={`flex items-center gap-1.5 font-sans ${m.accent}`}>
                     {m.icon}
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">{m.label}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{m.label}</span>
                   </div>
-                  <span className="text-2xl font-bold text-stone-900 font-sans tabular-nums leading-none">{m.value}</span>
+                  <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none">{m.value}</span>
                 </div>
               ))}
             </div>
@@ -419,7 +419,7 @@ export default function PremiumAdminUnifiedDashboard() {
               <Card className="lg:col-span-4">
                 <div className="px-5 pt-5 pb-4">
                   <SectionLabel icon={<UserPlus className="w-3.5 h-3.5" />}>Onboard Employee</SectionLabel>
-                  <p className="text-xs text-stone-500 font-sans -mt-1 mb-4">Add a new member to your workspace.</p>
+                  <p className="text-xs text-ink-600 font-sans -mt-1 mb-4">Add a new member to your workspace.</p>
 
                   <form onSubmit={handleOnboardSubmit} className="space-y-3.5">
                     <div className="grid grid-cols-2 gap-3">
@@ -440,7 +440,7 @@ export default function PremiumAdminUnifiedDashboard() {
                     </div>
 
                     {/* Banking */}
-                    <div className="bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg p-3 space-y-2">
+                    <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2">
                       <SectionLabel>Banking Details</SectionLabel>
                       <div className="grid grid-cols-2 gap-2">
                         <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="Account No." />
@@ -451,7 +451,7 @@ export default function PremiumAdminUnifiedDashboard() {
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full bg-stone-900 hover:bg-stone-800 text-stone-50 text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                      className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {submitting ? 'Adding employee…' : 'Onboard Employee'}
                     </button>
@@ -461,7 +461,7 @@ export default function PremiumAdminUnifiedDashboard() {
 
               {/* Tabs panel */}
               <Card className="lg:col-span-8 min-h-[600px] flex flex-col">
-                <div className="flex flex-wrap gap-0.5 p-2 border-b border-[#E8E0CC] bg-[#F5F0E8]/60">
+                <div className="flex flex-wrap gap-0.5 p-2 border-b border-[var(--border-subtle)] bg-[var(--surface-canvas)]/60">
                   {[
                     { id: 'roster', label: 'Roster' },
                     { id: 'leaves', label: `Leaves (${leaveRequests.length})` },
@@ -475,8 +475,8 @@ export default function PremiumAdminUnifiedDashboard() {
                       onClick={() => setActiveTab(t.id as any)}
                       className={`text-[11px] font-sans font-medium px-3.5 py-2 rounded-md cursor-pointer transition-all ${
                         activeTab === t.id
-                          ? 'bg-[#FDF8F0] text-stone-900 border border-[#DDD5C0] shadow-sm'
-                          : 'text-stone-500 hover:text-stone-800'
+                          ? 'bg-[var(--surface-card)] text-ink-900 border border-[var(--border-subtle)] shadow-sm'
+                          : 'text-ink-600 hover:text-ink-900'
                       }`}
                     >
                       {t.label}
@@ -506,13 +506,13 @@ export default function PremiumAdminUnifiedDashboard() {
             <Card>
               <div className="px-5 pt-5 pb-2">
                 <SectionLabel icon={<Sliders className="w-3.5 h-3.5" />}>Shift Configuration & Assignments</SectionLabel>
-                <p className="text-xs text-stone-500 font-sans -mt-1 mb-4">Define shift rules and assign them to individual employees.</p>
+                <p className="text-xs text-ink-600 font-sans -mt-1 mb-4">Define shift rules and assign them to individual employees.</p>
               </div>
               <Divider />
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-5">
 
                 {/* Create shift form */}
-                <form onSubmit={handleCreateShift} className="lg:col-span-4 bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg p-4 space-y-3">
+                <form onSubmit={handleCreateShift} className="lg:col-span-4 bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
                   <SectionLabel>New Shift</SectionLabel>
                   <Input required placeholder="Shift name" value={newShiftName} onChange={e => setNewShiftName(e.target.value)} />
                   <div className="grid grid-cols-2 gap-2">
@@ -520,28 +520,28 @@ export default function PremiumAdminUnifiedDashboard() {
                     <div><FormLabel>End</FormLabel><Input type="time" required value={newShiftEnd} onChange={e => setNewShiftEnd(e.target.value)} /></div>
                   </div>
                   <div><FormLabel>Grace period (min)</FormLabel><Input type="number" required value={newShiftGrace} onChange={e => setNewShiftGrace(e.target.value)} /></div>
-                  <button type="submit" disabled={buildingShift} className="w-full bg-stone-900 hover:bg-stone-800 text-stone-50 text-xs font-sans font-semibold py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+                  <button type="submit" disabled={buildingShift} className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50">
                     {buildingShift ? 'Saving…' : 'Save Shift'}
                   </button>
                 </form>
 
                 {/* Assign shifts */}
-                <div className="lg:col-span-8 max-h-[220px] overflow-y-auto divide-y divide-[#E8E0CC] border border-[#DDD5C0] rounded-lg">
+                <div className="lg:col-span-8 max-h-[220px] overflow-y-auto divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-lg">
                   {employees.length === 0 ? (
-                    <p className="p-4 text-center text-xs text-stone-400 font-sans italic">No employees to assign.</p>
+                    <p className="p-4 text-center text-xs text-ink-400 font-sans italic">No employees to assign.</p>
                   ) : employees.map((emp) => (
-                    <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#F0EAD9] transition-colors">
+                    <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-[var(--surface-card-hover)] transition-colors">
                       <div className="flex items-center gap-2.5">
                         <Avatar name={emp.full_name} />
                         <div>
-                          <p className="text-sm font-semibold text-stone-900 font-sans leading-snug">{emp.full_name}</p>
-                          <p className="text-[11px] text-stone-400 font-sans">{emp.designation || 'Staff'} · {emp.department || 'Operations'}</p>
+                          <p className="text-sm font-semibold text-ink-900 font-sans leading-snug">{emp.full_name}</p>
+                          <p className="text-[11px] text-ink-400 font-sans">{emp.designation || 'Staff'} · {emp.department || 'Operations'}</p>
                         </div>
                       </div>
                       <select
                         defaultValue={emp.assigned_shift_id || 'NONE'}
                         onChange={e => handleAllocateShiftMapping(emp.id, e.target.value)}
-                        className="text-xs font-sans text-stone-700 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
+                        className="text-xs font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
                       >
                         <option value="NONE">Default policy</option>
                         {shifts.map(s => (
@@ -563,18 +563,18 @@ export default function PremiumAdminUnifiedDashboard() {
           <Card>
             <div className="px-5 pt-5 pb-2">
               <SectionLabel icon={<MapPin className="w-3.5 h-3.5" />}>Geofence & IP Controls</SectionLabel>
-              <p className="text-xs text-stone-500 font-sans -mt-1 mb-4">
+              <p className="text-xs text-ink-600 font-sans -mt-1 mb-4">
                 Set the spatial radius and network gateway that gate employee check-ins.
               </p>
             </div>
             <Divider />
             <div className="p-5">
-              <form onSubmit={handleUpdateGeofence} className="bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg p-5 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              <form onSubmit={handleUpdateGeofence} className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-5 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div><FormLabel required>Latitude</FormLabel><Input type="number" step="any" required value={geoLat} onChange={e => setGeoLat(e.target.value)} /></div>
                 <div><FormLabel required>Longitude</FormLabel><Input type="number" step="any" required value={geoLng} onChange={e => setGeoLng(e.target.value)} /></div>
                 <div><FormLabel required>Radius (m)</FormLabel><Input type="number" required value={geoRadius} onChange={e => setGeoRadius(e.target.value)} /></div>
                 <div><FormLabel>Allowed IP</FormLabel><Input value={allowedIpInput} onChange={e => setAllowedIpInput(e.target.value)} placeholder="192.168.1.1" /></div>
-                <button type="submit" disabled={updatingGeo} className="h-[38px] w-full bg-stone-900 hover:bg-stone-800 text-stone-50 text-xs font-sans font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
+                <button type="submit" disabled={updatingGeo} className="h-[38px] w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
                   {updatingGeo ? 'Saving…' : 'Save Boundaries'}
                 </button>
               </form>
@@ -594,22 +594,22 @@ export default function PremiumAdminUnifiedDashboard() {
                 <div className="px-5 pt-5 pb-3">
                   <SectionLabel icon={<TrendingUp className="w-3.5 h-3.5" />}>Attendance Rate</SectionLabel>
                   <div className="flex items-end justify-between mb-2">
-                    <span className="text-3xl font-bold text-stone-900 font-sans tabular-nums">{currentAttendanceRate}%</span>
-                    <span className="text-xs text-stone-400 font-sans">{todayAttendance.length} / {employees.length} present</span>
+                    <span className="text-3xl font-bold text-ink-900 font-sans tabular-nums">{currentAttendanceRate}%</span>
+                    <span className="text-xs text-ink-400 font-sans">{todayAttendance.length} / {employees.length} present</span>
                   </div>
-                  <div className="w-full h-2 bg-[#E8E0CC] rounded-full overflow-hidden">
-                    <div className="h-full bg-stone-700 rounded-full transition-all duration-500" style={{ width: `${currentAttendanceRate}%` }} />
+                  <div className="w-full h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden">
+                    <div className="h-full bg-brand rounded-full transition-all duration-500" style={{ width: `${currentAttendanceRate}%` }} />
                   </div>
                 </div>
                 <Divider />
-                <div className="grid grid-cols-2 divide-x divide-[#E8E0CC]">
+                <div className="grid grid-cols-2 divide-x divide-[var(--border-subtle)]">
                   <div className="px-5 py-4">
-                    <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-stone-400 mb-0.5">Total Employees</p>
-                    <p className="text-xl font-bold text-stone-900 font-sans">{employees.length}</p>
+                    <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 mb-0.5">Total Employees</p>
+                    <p className="text-xl font-bold text-ink-900 font-sans">{employees.length}</p>
                   </div>
                   <div className="px-5 py-4">
-                    <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-stone-400 mb-0.5">Monthly Payroll</p>
-                    <p className="text-xl font-bold text-stone-900 font-sans">₹{totalPayrollLiability.toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 mb-0.5">Monthly Payroll</p>
+                    <p className="text-xl font-bold text-ink-900 font-sans">₹{totalPayrollLiability.toLocaleString('en-IN')}</p>
                   </div>
                 </div>
               </Card>
@@ -620,12 +620,12 @@ export default function PremiumAdminUnifiedDashboard() {
                   <SectionLabel icon={<PieChart className="w-3.5 h-3.5" />}>Department Distribution</SectionLabel>
                 </div>
                 <Divider />
-                <div className="p-3 max-h-48 overflow-y-auto divide-y divide-[#E8E0CC]">
+                <div className="p-3 max-h-48 overflow-y-auto divide-y divide-[var(--border-subtle)]">
                   {Object.entries(deptCounts).length === 0 ? (
-                    <p className="px-2 py-4 text-xs text-stone-400 font-sans text-center italic">No departments defined yet.</p>
+                    <p className="px-2 py-4 text-xs text-ink-400 font-sans text-center italic">No departments defined yet.</p>
                   ) : Object.entries(deptCounts).map(([dept, count]: any) => (
-                    <div key={dept} className="px-3 py-2.5 flex items-center justify-between hover:bg-[#F0EAD9] transition-colors">
-                      <span className="text-sm text-stone-700 font-sans truncate">{dept}</span>
+                    <div key={dept} className="px-3 py-2.5 flex items-center justify-between hover:bg-[var(--surface-card-hover)] transition-colors">
+                      <span className="text-sm text-ink-900 font-sans truncate">{dept}</span>
                       <Badge color="gray">{count} people</Badge>
                     </div>
                   ))}
@@ -643,16 +643,16 @@ export default function PremiumAdminUnifiedDashboard() {
               </div>
               <Divider />
               {todayAttendance.length === 0 ? (
-                <p className="px-5 py-8 text-center text-sm text-stone-400 font-sans italic">No check-ins recorded yet.</p>
+                <p className="px-5 py-8 text-center text-sm text-ink-400 font-sans italic">No check-ins recorded yet.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 p-4 max-h-48 overflow-y-auto">
                   {todayAttendance.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg px-3 py-2.5">
+                    <div key={log.id} className="flex items-center justify-between bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5">
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar name={log.employee_name} />
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-stone-900 font-sans truncate">{log.employee_name}</p>
-                          <p className="text-[10px] text-stone-400 font-sans">{log.employee_code}</p>
+                          <p className="text-xs font-semibold text-ink-900 font-sans truncate">{log.employee_name}</p>
+                          <p className="text-[10px] text-ink-400 font-sans">{log.employee_code}</p>
                         </div>
                       </div>
                       <Badge color="gray">{log.punch_in_time}</Badge>
@@ -669,16 +669,16 @@ export default function PremiumAdminUnifiedDashboard() {
               </div>
               <Divider />
               {systemLogs.length === 0 ? (
-                <p className="px-5 py-8 text-center text-sm text-stone-400 font-sans italic">No audit events logged yet.</p>
+                <p className="px-5 py-8 text-center text-sm text-ink-400 font-sans italic">No audit events logged yet.</p>
               ) : (
-                <div className="divide-y divide-[#E8E0CC] max-h-72 overflow-y-auto">
+                <div className="divide-y divide-[var(--border-subtle)] max-h-72 overflow-y-auto">
                   {systemLogs.map((log) => (
-                    <div key={log.id} className="px-5 py-3 flex flex-col sm:flex-row sm:justify-between gap-1 hover:bg-[#F0EAD9] transition-colors">
-                      <p className="text-sm text-stone-700 font-sans">
-                        <span className="font-semibold text-stone-900">[{log.event_type || 'SYSTEM'}]</span>{' '}
+                    <div key={log.id} className="px-5 py-3 flex flex-col sm:flex-row sm:justify-between gap-1 hover:bg-[var(--surface-card-hover)] transition-colors">
+                      <p className="text-sm text-ink-900 font-sans">
+                        <span className="font-semibold text-ink-900">[{log.event_type || 'SYSTEM'}]</span>{' '}
                         {log.description}
                       </p>
-                      <span className="text-[11px] text-stone-400 font-sans tabular-nums shrink-0">
+                      <span className="text-[11px] text-ink-400 font-sans tabular-nums shrink-0">
                         {new Date(log.created_at).toLocaleString()}
                       </span>
                     </div>
@@ -693,11 +693,11 @@ export default function PremiumAdminUnifiedDashboard() {
 
       {/* ── Edit employee modal ── */}
       {editingEmployee && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-brand/40 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-md shadow-xl">
             <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-stone-900">Edit Employee Profile</h3>
-              <button onClick={() => setEditingEmployee(null)} className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-[#F0EAD9] transition-colors cursor-pointer">
+              <h3 className="text-sm font-semibold text-ink-900">Edit Employee Profile</h3>
+              <button onClick={() => setEditingEmployee(null)} className="p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -709,14 +709,14 @@ export default function PremiumAdminUnifiedDashboard() {
                 <div><FormLabel>Department</FormLabel><Input value={editDepartment} onChange={e => setEditDepartment(e.target.value)} /></div>
               </div>
               <div><FormLabel>Monthly Salary (₹)</FormLabel><Input type="number" value={editSalary} onChange={e => setEditSalary(e.target.value)} /></div>
-              <div className="bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg p-3 space-y-2">
+              <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2">
                 <SectionLabel>Banking Details</SectionLabel>
                 <div className="grid grid-cols-2 gap-2">
                   <Input value={editBankAccount} onChange={e => setEditBankAccount(e.target.value)} placeholder="Account No." />
                   <Input value={editIfscCode} onChange={e => setEditIfscCode(e.target.value)} placeholder="IFSC Code" />
                 </div>
               </div>
-              <button type="submit" className="w-full bg-stone-900 hover:bg-stone-800 text-stone-50 text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer">
+              <button type="submit" className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer">
                 Save Changes
               </button>
             </form>

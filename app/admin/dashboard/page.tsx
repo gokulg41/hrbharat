@@ -52,7 +52,7 @@ function Avatar({ name }: { name: string }) {
 
 function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
   const map: Record<string, string> = {
-    gray: 'bg-[#EAE2CE] text-neutral-500',
+    gray: 'bg-[var(--surface-card-hover)] text-ink-600',
     amber: 'bg-amber-50 text-amber-600',
     teal: 'bg-teal-50 text-teal-700',
     rose: 'bg-rose-50 text-rose-600',
@@ -66,21 +66,21 @@ function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?
 }
 
 function Divider() {
-  return <div className="border-t border-[#E8E0CC] my-0" />;
+  return <div className="border-t border-[var(--border-subtle)] my-0" />;
 }
 
 function SectionHeader({ icon, title, count, href }: { icon: React.ReactNode; title: string; count?: number; href?: string }) {
   return (
     <div className="flex items-center justify-between px-4 pt-4 pb-2">
-      <div className="flex items-center gap-2 text-neutral-500">
+      <div className="flex items-center gap-2 text-ink-600">
         <span className="w-4 h-4 flex items-center justify-center">{icon}</span>
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{title}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-400">{title}</span>
         {count !== undefined && (
-          <span className="text-[10px] font-semibold text-neutral-400 tabular-nums">({count})</span>
+          <span className="text-[10px] font-semibold text-ink-400 tabular-nums">({count})</span>
         )}
       </div>
       {href && (
-        <Link href={href} className="flex items-center gap-0.5 text-[11px] text-neutral-400 hover:text-neutral-700 transition-colors">
+        <Link href={href} className="flex items-center gap-0.5 text-[11px] text-ink-400 hover:text-ink-900 transition-colors">
           View all <ChevronRight className="w-3 h-3" />
         </Link>
       )}
@@ -172,10 +172,10 @@ export default function AdminClientDashboard() {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDF8F0] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--surface-card)] flex items-center justify-center">
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-sm bg-neutral-200 animate-pulse" />
-          <p className="text-sm text-neutral-400 font-medium">Loading workspace…</p>
+          <div className="w-4 h-4 rounded-sm bg-surface-card-hover animate-pulse" />
+          <p className="text-sm text-ink-400 font-medium">Loading workspace…</p>
         </div>
       </div>
     );
@@ -184,13 +184,13 @@ export default function AdminClientDashboard() {
   /* ── Disconnected ── */
   if (disconnectNode) {
     return (
-      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-6">
-        <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl p-8 max-w-sm w-full shadow-sm">
+      <div className="min-h-screen bg-[var(--surface-canvas)] flex items-center justify-center p-6">
+        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-8 max-w-sm w-full shadow-sm">
           <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center mb-4">
             <ShieldAlert className="w-5 h-5 text-amber-600" />
           </div>
-          <h2 className="text-base font-semibold text-neutral-900">No workspace connected</h2>
-          <p className="text-sm text-neutral-500 mt-1.5 leading-relaxed">
+          <h2 className="text-base font-semibold text-ink-900">No workspace connected</h2>
+          <p className="text-sm text-ink-600 mt-1.5 leading-relaxed">
             Your account is authenticated but not linked to a company. Please complete your workspace setup to continue.
           </p>
         </div>
@@ -206,48 +206,48 @@ export default function AdminClientDashboard() {
      RENDER
   ──────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#F5F0E8] font-['Georgia',_serif] antialiased">
+    <div className="min-h-screen bg-[var(--surface-canvas)]  antialiased">
 
       {/* ── Sidebar-style left rail (decorative top border) ── */}
-      <div className="fixed top-0 left-0 right-0 h-px bg-neutral-200 z-10" />
+      <div className="fixed top-0 left-0 right-0 h-px bg-surface-card-hover z-10" />
 
       <div className="max-w-4xl mx-auto px-6 py-12 lg:py-16">
 
         {/* ── Page Title block (Notion-style) ── */}
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-1">
-            <Building className="w-3.5 h-3.5 text-neutral-400" />
-            <span className="text-xs text-neutral-400 font-sans">{company?.name || 'Your Company'}</span>
+            <Building className="w-3.5 h-3.5 text-ink-400" />
+            <span className="text-xs text-ink-400 font-sans">{company?.name || 'Your Company'}</span>
           </div>
-          <h1 className="text-4xl font-bold text-neutral-900 tracking-tight leading-tight">
+          <h1 className="text-4xl font-bold text-ink-900 tracking-tight leading-tight">
             Operational Overview
           </h1>
-          <p className="text-neutral-500 text-sm font-sans mt-1.5">
-            Welcome back, <span className="text-neutral-700 font-medium">{profile?.full_name}</span>
+          <p className="text-ink-600 text-sm font-sans mt-1.5">
+            Welcome back, <span className="text-ink-900 font-medium">{profile?.full_name}</span>
           </p>
 
           {/* Quick actions — inline, text-link style */}
           <div className="flex items-center gap-4 mt-5">
             <Link
               href="/admin"
-              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors font-sans group"
+              className="inline-flex items-center gap-1.5 text-sm text-ink-600 hover:text-ink-900 transition-colors font-sans group"
             >
-              <Search className="w-3.5 h-3.5 group-hover:text-neutral-900" />
+              <Search className="w-3.5 h-3.5 group-hover:text-ink-900" />
               Staff directory
             </Link>
-            <span className="text-neutral-200">·</span>
+            <span className="text-ink-400">·</span>
             <Link
               href="/admin"
-              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors font-sans group"
+              className="inline-flex items-center gap-1.5 text-sm text-ink-600 hover:text-ink-900 transition-colors font-sans group"
             >
-              <UserPlus className="w-3.5 h-3.5 group-hover:text-neutral-900" />
+              <UserPlus className="w-3.5 h-3.5 group-hover:text-ink-900" />
               Onboard employee
             </Link>
           </div>
         </div>
 
         {/* ── Metric callouts ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-neutral-200 rounded-xl overflow-hidden mb-10 border border-[#DDD5C0]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-surface-card-hover rounded-xl overflow-hidden mb-10 border border-[var(--border-subtle)]">
           {[
             {
               label: 'Active Personnel',
@@ -268,7 +268,7 @@ export default function AdminClientDashboard() {
               value: String(pendingLeaves.length),
               sub: pendingLeaves.length > 0 ? 'awaiting approval' : 'all clear',
               icon: <Clock className="w-3.5 h-3.5" />,
-              accent: pendingLeaves.length > 0 ? 'text-amber-600' : 'text-neutral-400',
+              accent: pendingLeaves.length > 0 ? 'text-amber-600' : 'text-ink-400',
               urgent: pendingLeaves.length > 0,
             },
             ...(features.advanceSalary ? [{
@@ -276,16 +276,16 @@ export default function AdminClientDashboard() {
               value: `₹${totalAdvanceClaims.toLocaleString('en-IN')}`,
               sub: `${pendingAdvances.length} pending claims`,
               icon: <Banknote className="w-3.5 h-3.5" />,
-              accent: pendingAdvances.length > 0 ? 'text-rose-500' : 'text-neutral-400',
+              accent: pendingAdvances.length > 0 ? 'text-rose-500' : 'text-ink-400',
             }] : []),
           ].map((m) => (
-            <div key={m.label} className="bg-[#FDF8F0] px-5 py-5 flex flex-col gap-2">
+            <div key={m.label} className="bg-[var(--surface-card)] px-5 py-5 flex flex-col gap-2">
               <div className={`${m.accent} flex items-center gap-1.5 font-sans`}>
                 {m.icon}
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{m.label}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{m.label}</span>
               </div>
               <div className="flex items-end gap-2">
-                <span className="text-2xl font-bold text-neutral-900 leading-none font-sans tabular-nums">
+                <span className="text-2xl font-bold text-ink-900 leading-none font-sans tabular-nums">
                   {m.value}
                 </span>
                 {m.urgent && (
@@ -294,7 +294,7 @@ export default function AdminClientDashboard() {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-neutral-400 font-sans">{m.sub}</p>
+              <p className="text-[11px] text-ink-400 font-sans">{m.sub}</p>
             </div>
           ))}
         </div>
@@ -306,7 +306,7 @@ export default function AdminClientDashboard() {
           <div className="lg:col-span-3 space-y-6">
 
             {/* Leave Approvals */}
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
               <SectionHeader
                 icon={<Circle className="w-3 h-3 fill-amber-400 text-amber-400" />}
                 title="Leave Queue"
@@ -316,21 +316,21 @@ export default function AdminClientDashboard() {
 
               {pendingLeaves.length === 0 ? (
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm text-neutral-400 font-sans">No pending leave requests</p>
+                  <p className="text-sm text-ink-400 font-sans">No pending leave requests</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8E0CC] max-h-64 overflow-y-auto">
+                <div className="divide-y divide-[var(--border-subtle)] max-h-64 overflow-y-auto">
                   {pendingLeaves.map((ticket) => (
-                    <div key={ticket.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-[#F0EAD9] transition-colors">
+                    <div key={ticket.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-[var(--surface-card-hover)] transition-colors">
                       <div className="flex items-start gap-2.5 min-w-0">
                         <Avatar name={ticket.employee_name} />
                         <div className="min-w-0 space-y-0.5">
-                          <p className="text-sm font-semibold text-neutral-900 font-sans leading-snug">{ticket.employee_name}</p>
+                          <p className="text-sm font-semibold text-ink-900 font-sans leading-snug">{ticket.employee_name}</p>
                           <div className="flex items-center flex-wrap gap-1.5">
                             <Badge color="gray">{ticket.employee_code}</Badge>
                             <Badge color="teal">{ticket.leave_type}</Badge>
                           </div>
-                          <p className="text-[11px] text-neutral-400 font-sans flex items-center gap-1">
+                          <p className="text-[11px] text-ink-400 font-sans flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {ticket.start_date} – {ticket.end_date}
                           </p>
@@ -339,14 +339,14 @@ export default function AdminClientDashboard() {
                       <div className="flex items-center gap-1 shrink-0 mt-0.5">
                         <button
                           onClick={() => handleActionUpdate('leave_requests', ticket.id, 'Approved')}
-                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-status-success-bg transition-colors cursor-pointer"
                           title="Approve"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleActionUpdate('leave_requests', ticket.id, 'Rejected')}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-status-danger-bg transition-colors cursor-pointer"
                           title="Reject"
                         >
                           <XCircle className="w-4 h-4" />
@@ -360,7 +360,7 @@ export default function AdminClientDashboard() {
 
             {/* Advance Salary */}
             <PlanGate feature="advanceSalary">
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
               <SectionHeader
                 icon={<Circle className="w-3 h-3 fill-rose-400 text-rose-400" />}
                 title="Advance Salary"
@@ -370,21 +370,21 @@ export default function AdminClientDashboard() {
 
               {pendingAdvances.length === 0 ? (
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm text-neutral-400 font-sans">No pending advance requests</p>
+                  <p className="text-sm text-ink-400 font-sans">No pending advance requests</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8E0CC] max-h-64 overflow-y-auto">
+                <div className="divide-y divide-[var(--border-subtle)] max-h-64 overflow-y-auto">
                   {pendingAdvances.map((claim) => (
-                    <div key={claim.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-[#F0EAD9] transition-colors">
+                    <div key={claim.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-[var(--surface-card-hover)] transition-colors">
                       <div className="flex items-start gap-2.5 min-w-0">
                         <Avatar name={claim.employee_name} />
                         <div className="min-w-0 space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-semibold text-neutral-900 font-sans leading-snug">{claim.employee_name}</p>
+                            <p className="text-sm font-semibold text-ink-900 font-sans leading-snug">{claim.employee_name}</p>
                             <Badge color="gray">{claim.employee_code}</Badge>
                           </div>
                           {claim.reason && (
-                            <p className="text-[11px] text-neutral-400 font-sans italic truncate max-w-xs">"{claim.reason}"</p>
+                            <p className="text-[11px] text-ink-400 font-sans italic truncate max-w-xs">"{claim.reason}"</p>
                           )}
                           <p className="text-xs font-semibold text-rose-600 font-sans">
                             ₹{claim.requested_amount.toLocaleString('en-IN')}
@@ -394,14 +394,14 @@ export default function AdminClientDashboard() {
                       <div className="flex items-center gap-1 shrink-0 mt-0.5">
                         <button
                           onClick={() => handleActionUpdate('advance_salary_requests', claim.id, 'Approved')}
-                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-status-success-bg transition-colors cursor-pointer"
                           title="Approve"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleActionUpdate('advance_salary_requests', claim.id, 'Rejected')}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-rose-500 hover:bg-status-danger-bg transition-colors cursor-pointer"
                           title="Reject"
                         >
                           <XCircle className="w-4 h-4" />
@@ -416,9 +416,9 @@ export default function AdminClientDashboard() {
 
             {/* EOD Logs */}
             <PlanGate feature="eodReports">
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
               <SectionHeader
-                icon={<ClipboardList className="w-3.5 h-3.5 text-neutral-400" />}
+                icon={<ClipboardList className="w-3.5 h-3.5 text-ink-400" />}
                 title="Daily Output Logs"
                 count={dailyLogs.length}
               />
@@ -426,21 +426,21 @@ export default function AdminClientDashboard() {
 
               {dailyLogs.length === 0 ? (
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm text-neutral-400 font-sans">No EOD logs submitted yet</p>
+                  <p className="text-sm text-ink-400 font-sans">No EOD logs submitted yet</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8E0CC] max-h-96 overflow-y-auto">
+                <div className="divide-y divide-[var(--border-subtle)] max-h-96 overflow-y-auto">
                   {dailyLogs.map((log) => (
-                    <div key={log.id} className="px-4 py-3.5 hover:bg-[#F0EAD9] transition-colors space-y-1.5">
+                    <div key={log.id} className="px-4 py-3.5 hover:bg-[var(--surface-card-hover)] transition-colors space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Avatar name={log.employee_name} />
                           <div>
-                            <span className="text-sm font-semibold text-neutral-900 font-sans">{log.employee_name}</span>
+                            <span className="text-sm font-semibold text-ink-900 font-sans">{log.employee_name}</span>
                             <Badge color="gray">{log.employee_code}</Badge>
                           </div>
                         </div>
-                        <span className="text-[10px] font-sans text-neutral-400 shrink-0 tabular-nums">
+                        <span className="text-[10px] font-sans text-ink-400 shrink-0 tabular-nums">
                           {new Date(log.submitted_at || log.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                         </span>
                       </div>
@@ -452,7 +452,7 @@ export default function AdminClientDashboard() {
                         </div>
                       )}
                       {log.eod_submission && (
-                        <p className="text-[12px] text-neutral-600 font-serif leading-relaxed pl-9 border-l-2 border-[#E8E0CC] ml-[34px]">
+                        <p className="text-[12px] text-ink-600 font-serif leading-relaxed pl-9 border-l-2 border-[var(--border-subtle)] ml-[34px]">
                           {log.eod_submission}
                         </p>
                       )}
@@ -468,9 +468,9 @@ export default function AdminClientDashboard() {
           <div className="lg:col-span-2 space-y-6">
 
             {/* Roster */}
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
               <SectionHeader
-                icon={<Users className="w-3.5 h-3.5 text-neutral-400" />}
+                icon={<Users className="w-3.5 h-3.5 text-ink-400" />}
                 title="Team Roster"
                 href="/admin"
               />
@@ -478,28 +478,28 @@ export default function AdminClientDashboard() {
 
               {workforce.length === 0 ? (
                 <div className="px-4 py-8 text-center">
-                  <p className="text-sm text-neutral-400 font-sans">No employees added yet</p>
+                  <p className="text-sm text-ink-400 font-sans">No employees added yet</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8E0CC]">
+                <div className="divide-y divide-[var(--border-subtle)]">
                   {workforce.slice(0, 5).map((emp) => (
-                    <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-2 hover:bg-[#F0EAD9] transition-colors group">
+                    <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-2 hover:bg-[var(--surface-card-hover)] transition-colors group">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Avatar name={emp.full_name} />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-neutral-900 font-sans truncate leading-snug">{emp.full_name}</p>
-                          <p className="text-[11px] text-neutral-400 font-sans truncate">
+                          <p className="text-sm font-medium text-ink-900 font-sans truncate leading-snug">{emp.full_name}</p>
+                          <p className="text-[11px] text-ink-400 font-sans truncate">
                             {emp.designation || 'Staff'} · {emp.department || 'Operations'}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-semibold text-neutral-700 font-sans tabular-nums hidden sm:block">
+                        <span className="text-xs font-semibold text-ink-900 font-sans tabular-nums hidden sm:block">
                           ₹{Number(emp.monthly_salary || 0).toLocaleString('en-IN')}
                         </span>
                         <Link
                           href="/admin"
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-[#EAE2CE] opacity-0 group-hover:opacity-100 transition-all"
+                          className="p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] opacity-0 group-hover:opacity-100 transition-all"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </Link>
@@ -508,7 +508,7 @@ export default function AdminClientDashboard() {
                   ))}
                   {workforce.length > 5 && (
                     <div className="px-4 py-3">
-                      <Link href="/admin" className="text-xs text-neutral-400 hover:text-neutral-700 font-sans transition-colors flex items-center gap-1">
+                      <Link href="/admin" className="text-xs text-ink-400 hover:text-ink-900 font-sans transition-colors flex items-center gap-1">
                         +{workforce.length - 5} more employees <ChevronRight className="w-3 h-3" />
                       </Link>
                     </div>
@@ -519,9 +519,9 @@ export default function AdminClientDashboard() {
 
             {/* Geofence */}
             <PlanGate feature="customGeofence">
-            <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
               <SectionHeader
-                icon={<MapPin className="w-3.5 h-3.5 text-neutral-400" />}
+                icon={<MapPin className="w-3.5 h-3.5 text-ink-400" />}
                 title="Compliance"
               />
               <Divider />
@@ -531,10 +531,10 @@ export default function AdminClientDashboard() {
                     <MapPin className="w-3.5 h-3.5 text-teal-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-neutral-900 font-sans">Geofenced Check-ins</p>
-                    <p className="text-[12px] text-neutral-500 font-sans mt-0.5 leading-relaxed">
+                    <p className="text-sm font-semibold text-ink-900 font-sans">Geofenced Check-ins</p>
+                    <p className="text-[12px] text-ink-600 font-sans mt-0.5 leading-relaxed">
                       Attendance is restricted to within{' '}
-                      <span className="font-semibold text-neutral-700">
+                      <span className="font-semibold text-ink-900">
                         {company?.allowed_radius_meters || 100} meters
                       </span>{' '}
                       of your registered office location.

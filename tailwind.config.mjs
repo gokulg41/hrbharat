@@ -8,31 +8,36 @@ const config = {
   theme: {
     extend: {
       colors: {
-        studio: {
-          canvas: "var(--studio-canvas)",
+        surface: {
+          canvas: "var(--surface-canvas)",
+          card: "var(--surface-card)",
+          "card-hover": "var(--surface-card-hover)",
         },
         ink: {
-          onyx: "var(--ink-onyx)",
+          900: "var(--ink-900)",
+          600: "var(--ink-600)",
+          400: "var(--ink-400)",
         },
-        text: {
-          muted: "var(--text-muted)",
-        },
-        card: {
-          solid: "var(--card-bg-solid)",
-          hover: "var(--card-bg-hover)",
+        brand: {
+          DEFAULT: "var(--brand-primary)",
+          hover: "var(--brand-primary-hover)",
+          subtle: "var(--brand-primary-subtle)",
         },
         border: {
-          ultra: "var(--border-ultra-thin)",
-          hover: "var(--border-thin-hover)",
+          subtle: "var(--border-subtle)",
+          hover: "var(--border-hover)",
         },
-        terminal: {
-          bg: "var(--dark-terminal-bg)",
-          border: "var(--dark-terminal-border)",
-          text: "var(--dark-terminal-text)",
+        status: {
+          success: "var(--status-success)",
+          "success-bg": "var(--status-success-bg)",
+          warning: "var(--status-warning)",
+          "warning-bg": "var(--status-warning-bg)",
+          danger: "var(--status-danger)",
+          "danger-bg": "var(--status-danger-bg)",
         },
       },
       boxShadow: {
-        luxury: "var(--shadow-luxury-xs)",
+        card: "var(--shadow-card)",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

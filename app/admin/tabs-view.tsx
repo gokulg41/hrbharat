@@ -162,48 +162,48 @@ export default function AdminTabsView({
     return (
       <div className="space-y-4 p-4">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search employees…"
-            className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-md focus:outline-none focus:ring-1 focus:ring-stone-400"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-brand"
           />
         </div>
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
+        <div className="border border-border-subtle rounded-lg overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-surface-canvas border-b border-border-subtle">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Department</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Salary</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Joined</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Department</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Salary</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Joined</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-subtle">
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No employees found</td></tr>
+                <tr><td colSpan={5} className="text-center py-10 text-ink-400">No employees found</td></tr>
               ) : filtered.map((emp) => (
-                <tr key={emp.id} className="hover:bg-stone-50">
+                <tr key={emp.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-900">{emp.full_name}</p>
-                    <p className="text-stone-400">{emp.employee_code}</p>
+                    <p className="font-medium text-ink-900">{emp.full_name}</p>
+                    <p className="text-ink-400">{emp.employee_code}</p>
                   </td>
-                  <td className="px-4 py-3 text-stone-600">
+                  <td className="px-4 py-3 text-ink-600">
                     <p>{emp.department || "—"}</p>
-                    <p className="text-stone-400">{emp.designation || "—"}</p>
+                    <p className="text-ink-400">{emp.designation || "—"}</p>
                   </td>
-                  <td className="px-4 py-3 text-stone-700 font-medium">
+                  <td className="px-4 py-3 text-ink-900 font-medium">
                     ₹{Number(emp.monthly_salary || 0).toLocaleString("en-IN")}
                   </td>
-                  <td className="px-4 py-3 text-stone-500">
+                  <td className="px-4 py-3 text-ink-600">
                     {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString("en-IN") : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => startEditing(emp)}
-                      className="p-1 rounded hover:bg-stone-100 text-stone-400 hover:text-stone-700"
+                      className="p-1 rounded hover:bg-surface-card-hover text-ink-400 hover:text-ink-900"
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </button>
@@ -222,39 +222,39 @@ export default function AdminTabsView({
   if (activeTab === "leaves") {
     return (
       <div className="space-y-4 p-4">
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
+        <div className="border border-border-subtle rounded-lg overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-surface-canvas border-b border-border-subtle">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Type</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Duration</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Reason</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Type</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Duration</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Reason</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-subtle">
               {leaveRequests.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No pending leave requests</td></tr>
+                <tr><td colSpan={5} className="text-center py-10 text-ink-400">No pending leave requests</td></tr>
               ) : leaveRequests.map((r) => (
-                <tr key={r.id} className="hover:bg-stone-50">
+                <tr key={r.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-900">{r.employee_name}</p>
-                    <p className="text-stone-400">{r.employee_code}</p>
+                    <p className="font-medium text-ink-900">{r.employee_name}</p>
+                    <p className="text-ink-400">{r.employee_code}</p>
                   </td>
-                  <td className="px-4 py-3 text-stone-600 capitalize">{r.leave_type}</td>
-                  <td className="px-4 py-3 text-stone-500">
+                  <td className="px-4 py-3 text-ink-600 capitalize">{r.leave_type}</td>
+                  <td className="px-4 py-3 text-ink-600">
                     {r.start_date} → {r.end_date}
                   </td>
-                  <td className="px-4 py-3 text-stone-500 max-w-[200px] truncate">{r.reason}</td>
+                  <td className="px-4 py-3 text-ink-600 max-w-[200px] truncate">{r.reason}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => handleLeaveStatus(r.id, "approved")}
-                        className="p-1 rounded hover:bg-emerald-50 text-stone-400 hover:text-emerald-600">
+                        className="p-1 rounded hover:bg-emerald-50 text-ink-400 hover:text-emerald-600">
                         <Check className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => handleLeaveStatus(r.id, "rejected")}
-                        className="p-1 rounded hover:bg-rose-50 text-stone-400 hover:text-rose-500">
+                        className="p-1 rounded hover:bg-rose-50 text-ink-400 hover:text-rose-500">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -273,41 +273,41 @@ export default function AdminTabsView({
   if (activeTab === "advances") {
     return (
       <div className="space-y-4 p-4">
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
+        <div className="border border-border-subtle rounded-lg overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-surface-canvas border-b border-border-subtle">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Amount</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Reason</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Requested</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Amount</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Reason</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Requested</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-subtle">
               {advanceRequests.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No pending advance requests</td></tr>
+                <tr><td colSpan={5} className="text-center py-10 text-ink-400">No pending advance requests</td></tr>
               ) : advanceRequests.map((r) => (
-                <tr key={r.id} className="hover:bg-stone-50">
+                <tr key={r.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-900">{r.employee_name}</p>
-                    <p className="text-stone-400">{r.employee_code}</p>
+                    <p className="font-medium text-ink-900">{r.employee_name}</p>
+                    <p className="text-ink-400">{r.employee_code}</p>
                   </td>
-                  <td className="px-4 py-3 font-medium text-stone-900">
+                  <td className="px-4 py-3 font-medium text-ink-900">
                     ₹{Number(r.requested_amount || 0).toLocaleString("en-IN")}
                   </td>
-                  <td className="px-4 py-3 text-stone-500 max-w-[180px] truncate">{r.reason}</td>
-                  <td className="px-4 py-3 text-stone-400">
+                  <td className="px-4 py-3 text-ink-600 max-w-[180px] truncate">{r.reason}</td>
+                  <td className="px-4 py-3 text-ink-400">
                     {new Date(r.created_at).toLocaleDateString("en-IN")}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => handleAdvanceStatus(r.id, "approved")}
-                        className="p-1 rounded hover:bg-emerald-50 text-stone-400 hover:text-emerald-600">
+                        className="p-1 rounded hover:bg-emerald-50 text-ink-400 hover:text-emerald-600">
                         <Check className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => handleAdvanceStatus(r.id, "rejected")}
-                        className="p-1 rounded hover:bg-rose-50 text-stone-400 hover:text-rose-500">
+                        className="p-1 rounded hover:bg-rose-50 text-ink-400 hover:text-rose-500">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -326,36 +326,36 @@ export default function AdminTabsView({
   if (activeTab === "tasks") {
     return (
       <div className="space-y-4 p-4">
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
+        <div className="border border-border-subtle rounded-lg overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-surface-canvas border-b border-border-subtle">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Tasks</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Submitted</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Tasks</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Submitted</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-subtle">
               {dailyTaskLogs.length === 0 ? (
-                <tr><td colSpan={3} className="text-center py-10 text-stone-400">No task logs yet</td></tr>
+                <tr><td colSpan={3} className="text-center py-10 text-ink-400">No task logs yet</td></tr>
               ) : dailyTaskLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-stone-50">
+                <tr key={log.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-900">{log.employee_name}</p>
-                    <p className="text-stone-400">{log.employee_code}</p>
+                    <p className="font-medium text-ink-900">{log.employee_name}</p>
+                    <p className="text-ink-400">{log.employee_code}</p>
                   </td>
-                  <td className="px-4 py-3 text-stone-600 max-w-[300px]">
+                  <td className="px-4 py-3 text-ink-600 max-w-[300px]">
                     {log.task_priorities?.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {log.task_priorities.map((t: string, i: number) => (
-                          <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">{t}</span>
+                          <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-card-hover text-ink-600">{t}</span>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-stone-400 italic">No tasks listed</span>
+                      <span className="text-ink-400 italic">No tasks listed</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-stone-400">
+                  <td className="px-4 py-3 text-ink-400">
                     {new Date(log.submitted_at || log.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
                   </td>
                 </tr>
@@ -371,41 +371,41 @@ export default function AdminTabsView({
   if (activeTab === "compliance") {
     return (
       <div className="space-y-4 p-4">
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
+        <div className="border border-border-subtle rounded-lg overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-surface-canvas border-b border-border-subtle">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Date</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Requested Times</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Reason</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Actions</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Date</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Requested Times</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Reason</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-subtle">
               {regularizations.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No pending corrections</td></tr>
+                <tr><td colSpan={5} className="text-center py-10 text-ink-400">No pending corrections</td></tr>
               ) : regularizations.map((r) => (
-                <tr key={r.id} className="hover:bg-stone-50">
+                <tr key={r.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-900">{r.employee_name}</p>
-                    <p className="text-stone-400">{r.employee_code}</p>
+                    <p className="font-medium text-ink-900">{r.employee_name}</p>
+                    <p className="text-ink-400">{r.employee_code}</p>
                   </td>
-                  <td className="px-4 py-3 text-stone-500">
+                  <td className="px-4 py-3 text-ink-600">
                     {r.date ? new Date(r.date).toLocaleDateString("en-IN") : "—"}
                   </td>
-                  <td className="px-4 py-3 text-stone-500">
+                  <td className="px-4 py-3 text-ink-600">
                     {r.requested_check_in || "—"} → {r.requested_check_out || "—"}
                   </td>
-                  <td className="px-4 py-3 text-stone-500 max-w-[180px] truncate">{r.reason}</td>
+                  <td className="px-4 py-3 text-ink-600 max-w-[180px] truncate">{r.reason}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => handleRegularizationStatus(r.id, "approved")}
-                        className="p-1 rounded hover:bg-emerald-50 text-stone-400 hover:text-emerald-600">
+                        className="p-1 rounded hover:bg-emerald-50 text-ink-400 hover:text-emerald-600">
                         <Check className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => handleRegularizationStatus(r.id, "rejected")}
-                        className="p-1 rounded hover:bg-rose-50 text-stone-400 hover:text-rose-500">
+                        className="p-1 rounded hover:bg-rose-50 text-ink-400 hover:text-rose-500">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -425,36 +425,36 @@ export default function AdminTabsView({
     const total = employees.reduce((s, e) => s + (Number(e.monthly_salary) || 0), 0);
     return (
       <div className="space-y-4 p-4">
-        <div className="bg-stone-50 border border-stone-200 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-xs text-stone-500 font-medium">Total Monthly Liability</span>
-          <span className="text-sm font-bold text-stone-900">₹{total.toLocaleString("en-IN")}</span>
+        <div className="bg-surface-canvas border border-border-subtle rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-ink-600 font-medium">Total Monthly Liability</span>
+          <span className="text-sm font-bold text-ink-900">₹{total.toLocaleString("en-IN")}</span>
         </div>
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
+        <div className="border border-border-subtle rounded-lg overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-stone-50 border-b border-stone-200">
+            <thead className="bg-surface-canvas border-b border-border-subtle">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Employee</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Department</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Gross Salary</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">Bank Account</th>
-                <th className="text-left px-4 py-2.5 font-medium text-stone-400">IFSC</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Employee</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Department</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Gross Salary</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">Bank Account</th>
+                <th className="text-left px-4 py-2.5 font-medium text-ink-400">IFSC</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-border-subtle">
               {employees.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-stone-400">No employees on roster</td></tr>
+                <tr><td colSpan={5} className="text-center py-10 text-ink-400">No employees on roster</td></tr>
               ) : employees.map((emp) => (
-                <tr key={emp.id} className="hover:bg-stone-50">
+                <tr key={emp.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-stone-900">{emp.full_name}</p>
-                    <p className="text-stone-400">{emp.employee_code}</p>
+                    <p className="font-medium text-ink-900">{emp.full_name}</p>
+                    <p className="text-ink-400">{emp.employee_code}</p>
                   </td>
-                  <td className="px-4 py-3 text-stone-600">{emp.department || "—"}</td>
-                  <td className="px-4 py-3 font-medium text-stone-900">
+                  <td className="px-4 py-3 text-ink-600">{emp.department || "—"}</td>
+                  <td className="px-4 py-3 font-medium text-ink-900">
                     ₹{Number(emp.monthly_salary || 0).toLocaleString("en-IN")}
                   </td>
-                  <td className="px-4 py-3 text-stone-500 font-mono">{emp.bank_account_number || "—"}</td>
-                  <td className="px-4 py-3 text-stone-500 font-mono">{emp.ifsc_code || "—"}</td>
+                  <td className="px-4 py-3 text-ink-600 font-mono">{emp.bank_account_number || "—"}</td>
+                  <td className="px-4 py-3 text-ink-600 font-mono">{emp.ifsc_code || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -468,16 +468,16 @@ export default function AdminTabsView({
   if (activeTab === "logs") {
     return (
       <div className="space-y-4 p-4">
-        <div className="border border-stone-200 rounded-lg overflow-hidden divide-y divide-stone-100 max-h-[500px] overflow-y-auto">
+        <div className="border border-border-subtle rounded-lg overflow-hidden divide-y divide-border-subtle max-h-[500px] overflow-y-auto">
           {systemLogs.length === 0 ? (
-            <p className="text-center py-10 text-xs text-stone-400">No audit events logged yet</p>
+            <p className="text-center py-10 text-xs text-ink-400">No audit events logged yet</p>
           ) : systemLogs.map((log) => (
-            <div key={log.id} className="px-4 py-3 flex justify-between gap-3 hover:bg-stone-50">
-              <p className="text-xs text-stone-700">
-                <span className="font-semibold text-stone-900">[{log.event_type || "SYSTEM"}]</span>{" "}
+            <div key={log.id} className="px-4 py-3 flex justify-between gap-3 hover:bg-surface-card-hover">
+              <p className="text-xs text-ink-900">
+                <span className="font-semibold text-ink-900">[{log.event_type || "SYSTEM"}]</span>{" "}
                 {log.description}
               </p>
-              <span className="text-[11px] text-stone-400 shrink-0 tabular-nums">
+              <span className="text-[11px] text-ink-400 shrink-0 tabular-nums">
                 {new Date(log.created_at).toLocaleString("en-IN")}
               </span>
             </div>

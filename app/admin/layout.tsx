@@ -64,30 +64,30 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       <div className="p-5 space-y-6">
         {/* Brand */}
         <div className="flex items-center gap-3 px-1">
-          <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-bold text-stone-100 font-sans tracking-tight">HR</span>
+          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shrink-0">
+            <span className="text-[11px] font-bold text-ink-400 font-sans tracking-tight">HR</span>
           </div>
           <div>
-            <span className="text-sm font-semibold text-stone-900 font-sans block leading-tight">HRBharat</span>
-            <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-widest block font-sans">V1.2 Elite</span>
+            <span className="text-sm font-semibold text-ink-900 font-sans block leading-tight">HRBharat</span>
+            <span className="text-[9px] font-semibold text-ink-400 uppercase tracking-widest block font-sans">Admin Console</span>
           </div>
         </div>
 
         {/* Workspace badge */}
-        <div className="bg-[#F0EAD9] border border-[#DDD5C0] rounded-lg px-3 py-2.5 flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-[#FDF8F0] border border-[#DDD5C0] flex items-center justify-center shrink-0">
-            <Building2 className="w-3.5 h-3.5 text-stone-500" />
+        <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-[var(--surface-card)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-ink-600" />
           </div>
           <div className="truncate">
-            <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider block font-sans">Workspace Node</span>
-            <span className="text-xs font-semibold text-stone-800 truncate block font-sans">{companyName}</span>
+            <span className="text-[9px] font-semibold text-ink-400 uppercase tracking-wider block font-sans">Workspace</span>
+            <span className="text-xs font-semibold text-ink-900 truncate block font-sans">{companyName}</span>
           </div>
         </div>
 
         {/* Nav links */}
         <nav className="space-y-0.5">
-          <span className="text-[9px] font-semibold uppercase text-stone-400 tracking-widest block px-2 mb-2 font-sans">
-            Management Engine
+          <span className="text-[9px] font-semibold uppercase text-ink-400 tracking-widest block px-2 mb-2 font-sans">
+            Menu
           </span>
           {navigationLinks.map((link) => {
             const isActive = pathname === link.href;
@@ -98,13 +98,13 @@ export default function AdminSidebarLayout({ children }: { children: React.React
                 <button
                   key={link.href}
                   onClick={() => setLockedNav(link.name)}
-                  className="group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors text-stone-400 hover:bg-[#F0EAD9] hover:text-stone-500 cursor-pointer"
+                  className="group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors text-ink-400 hover:bg-[var(--surface-card-hover)] hover:text-ink-600 cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4 shrink-0 text-stone-300 group-hover:text-stone-400" />
+                    <Icon className="w-4 h-4 shrink-0 text-ink-400 group-hover:text-ink-400" />
                     <span>{link.name}</span>
                   </div>
-                  <Lock className="w-3 h-3 text-stone-300 group-hover:text-stone-400" />
+                  <Lock className="w-3 h-3 text-ink-400 group-hover:text-ink-400" />
                 </button>
               );
             }
@@ -115,15 +115,15 @@ export default function AdminSidebarLayout({ children }: { children: React.React
                 href={link.href}
                 className={`group flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors ${
                   isActive
-                    ? 'bg-[#E8E0CC] text-stone-900 font-semibold'
-                    : 'text-stone-500 hover:bg-[#F0EAD9] hover:text-stone-800'
+                    ? 'bg-[var(--border-subtle)] text-ink-900 font-semibold'
+                    : 'text-ink-600 hover:bg-[var(--surface-card-hover)] hover:text-ink-900'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-stone-700' : 'text-stone-400 group-hover:text-stone-600'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-ink-900' : 'text-ink-400 group-hover:text-ink-600'}`} />
                   <span>{link.name}</span>
                 </div>
-                {isActive && <ChevronRight className="w-3 h-3 text-stone-400" />}
+                {isActive && <ChevronRight className="w-3 h-3 text-ink-400" />}
               </Link>
             );
           })}
@@ -131,14 +131,14 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       </div>
 
       {/* Bottom user area */}
-      <div className="p-4 border-t border-[#DDD5C0] space-y-2">
+      <div className="p-4 border-t border-[var(--border-subtle)] space-y-2">
         <div className="flex items-center gap-2.5 px-2 py-1">
-          <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[11px] font-semibold text-stone-600 font-sans shrink-0">
+          <div className="w-7 h-7 rounded-full bg-surface-card-hover flex items-center justify-center text-[11px] font-semibold text-ink-600 font-sans shrink-0">
             {initials}
           </div>
           <div className="truncate">
-            <span className="text-xs font-semibold text-stone-800 block truncate font-sans">{adminName}</span>
-            <span className="text-[9px] font-medium text-stone-400 uppercase tracking-wide block font-sans">Control Deck Admin</span>
+            <span className="text-xs font-semibold text-ink-900 block truncate font-sans">{adminName}</span>
+            <span className="text-[9px] font-medium text-ink-400 uppercase tracking-wide block font-sans">Administrator</span>
           </div>
         </div>
         <button
@@ -153,10 +153,10 @@ export default function AdminSidebarLayout({ children }: { children: React.React
   );
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] flex antialiased">
+    <div className="min-h-screen bg-[var(--surface-canvas)] flex antialiased">
 
       {/* ── Desktop sidebar ── */}
-      <aside className="w-60 bg-[#FDF8F0] border-r border-[#DDD5C0] hidden md:flex flex-col justify-between fixed h-screen z-30">
+      <aside className="w-60 bg-[var(--surface-card)] border-r border-[var(--border-subtle)] hidden md:flex flex-col justify-between fixed h-screen z-30">
         <SidebarContent />
       </aside>
 
@@ -170,13 +170,13 @@ export default function AdminSidebarLayout({ children }: { children: React.React
 
       {/* ── Mobile: slide-in drawer ── */}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-[#FDF8F0] border-r border-[#DDD5C0] flex flex-col justify-between z-50 md:hidden
+        className={`fixed top-0 left-0 h-screen w-64 bg-[var(--surface-card)] border-r border-[var(--border-subtle)] flex flex-col justify-between z-50 md:hidden
           transition-transform duration-300 ease-in-out
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <button
           onClick={() => setMobileOpen(false)}
-          className="absolute top-3 right-3 p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-[#F0EAD9] transition-colors"
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -184,18 +184,18 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       </aside>
 
       {/* ── Mobile: top bar ── */}
-      <div className="fixed top-0 left-0 right-0 h-12 bg-[#FDF8F0] border-b border-[#DDD5C0] flex items-center px-4 gap-3 z-30 md:hidden">
+      <div className="fixed top-0 left-0 right-0 h-12 bg-[var(--surface-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3 z-30 md:hidden">
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-1.5 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-[#F0EAD9] transition-colors"
+          className="p-1.5 rounded-lg text-ink-600 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-stone-900 flex items-center justify-center shrink-0">
-            <span className="text-[9px] font-bold text-stone-100 font-sans">HR</span>
+          <div className="w-6 h-6 rounded-md bg-brand flex items-center justify-center shrink-0">
+            <span className="text-[9px] font-bold text-ink-400 font-sans">HR</span>
           </div>
-          <span className="text-sm font-semibold text-stone-900 font-sans">HRBharat</span>
+          <span className="text-sm font-semibold text-ink-900 font-sans">HRBharat</span>
         </div>
       </div>
 
@@ -211,37 +211,37 @@ export default function AdminSidebarLayout({ children }: { children: React.React
           onClick={() => setLockedNav(null)}
         >
           <div
-            className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl shadow-xl p-6 w-full max-w-sm flex flex-col items-center text-center gap-4"
+            className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-xl p-6 w-full max-w-sm flex flex-col items-center text-center gap-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Lock icon */}
-            <div className="w-12 h-12 rounded-full bg-white border border-[#DDD5C0] flex items-center justify-center">
-              <Lock className="w-5 h-5 text-stone-400" />
+            <div className="w-12 h-12 rounded-full bg-white border border-[var(--border-subtle)] flex items-center justify-center">
+              <Lock className="w-5 h-5 text-ink-400" />
             </div>
 
             {/* Message */}
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-stone-900 font-sans">{lockedNav}</p>
-              <p className="text-xs text-stone-500 font-sans leading-relaxed">
+              <p className="text-sm font-semibold text-ink-900 font-sans">{lockedNav}</p>
+              <p className="text-xs text-ink-600 font-sans leading-relaxed">
                 This feature is available on the{' '}
-                <span className="font-semibold text-stone-800">Business plan</span> and above.
+                <span className="font-semibold text-ink-900">Business plan</span> and above.
               </p>
             </div>
 
             {/* Plan badge */}
-            <div className="flex items-center gap-2 bg-white border border-[#DDD5C0] rounded-lg px-4 py-2.5 text-sm font-sans">
-              <Zap className="w-4 h-4 text-stone-400" />
-              <span className="font-semibold text-stone-800">Business</span>
-              <span className="text-stone-400">·</span>
-              <span className="text-stone-500">₹3,999/mo</span>
-              <span className="text-stone-400">·</span>
-              <span className="text-xs text-stone-400">Up to 75 employees</span>
+            <div className="flex items-center gap-2 bg-white border border-[var(--border-subtle)] rounded-lg px-4 py-2.5 text-sm font-sans">
+              <Zap className="w-4 h-4 text-ink-400" />
+              <span className="font-semibold text-ink-900">Business</span>
+              <span className="text-ink-400">·</span>
+              <span className="text-ink-600">₹3,999/mo</span>
+              <span className="text-ink-400">·</span>
+              <span className="text-xs text-ink-400">Up to 75 employees</span>
             </div>
 
             {/* Current plan */}
-            <p className="text-xs text-stone-400 font-sans">
+            <p className="text-xs text-ink-400 font-sans">
               Current plan:{' '}
-              <span className="capitalize font-semibold text-stone-500">
+              <span className="capitalize font-semibold text-ink-600">
                 {plan === 'none' ? 'No active plan' : plan}
               </span>
             </p>
@@ -250,13 +250,13 @@ export default function AdminSidebarLayout({ children }: { children: React.React
             <div className="flex gap-2 w-full">
               <button
                 onClick={() => setLockedNav(null)}
-                className="flex-1 text-sm font-medium font-sans px-4 py-2 rounded-lg border border-[#DDD5C0] text-stone-600 hover:bg-[#F0EAD9] transition-colors cursor-pointer"
+                className="flex-1 text-sm font-medium font-sans px-4 py-2 rounded-lg border border-[var(--border-subtle)] text-ink-600 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <Link
                 href="/admin/settings/billing"
-                className="flex-1 text-sm font-medium font-sans px-4 py-2 rounded-lg bg-stone-900 text-white hover:bg-stone-800 transition-colors text-center"
+                className="flex-1 text-sm font-medium font-sans px-4 py-2 rounded-lg bg-brand text-white hover:bg-brand-hover transition-colors text-center"
                 onClick={() => setLockedNav(null)}
               >
                 Upgrade plan

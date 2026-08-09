@@ -68,75 +68,75 @@ export default function BranchManagementEngine() {
     fetchBranches();
   };
 
-  if (loading) return <div className="p-6 text-xs text-slate-400 font-bold animate-pulse">SYNCHRONIZING ENTERPRISE BRANCH MAPS...</div>;
+  if (loading) return <div className="p-6 text-xs text-ink-400 font-bold animate-pulse">Loading branch locations…</div>;
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Multi-Location Branch Matrix</h2>
-        <p className="text-xs text-slate-500 font-medium">Declare separated physical outlets with isolated geofence parameters</p>
+        <h2 className="text-2xl font-semibold text-ink-900 tracking-tight">Branch Locations</h2>
+        <p className="text-xs text-ink-600 font-medium">Manage branch outlets and their check-in geofence radius</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* BRANCH INTAKE FORM */}
-        <form onSubmit={handleCreateBranch} className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">Initialize New Branch</h3>
+        <form onSubmit={handleCreateBranch} className="bg-white border border-border-subtle rounded-3xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-semibold uppercase text-ink-900 tracking-wider">Add Branch</h3>
           
           <div>
-            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Branch Outlet Name</label>
-            <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Mumbai Central Hub" className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none" />
+            <label className="text-[10px] uppercase font-bold text-ink-400 block mb-1">Branch Name</label>
+            <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Mumbai Central" className="w-full text-xs font-medium px-3 py-2 border border-border-subtle rounded-xl focus:outline-none" />
           </div>
 
           <div>
-            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Physical Address</label>
-            <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Full street address context..." className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none" />
+            <label className="text-[10px] uppercase font-bold text-ink-400 block mb-1">Physical Address</label>
+            <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Street address" className="w-full text-xs font-medium px-3 py-2 border border-border-subtle rounded-xl focus:outline-none" />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Latitude</label>
-              <input type="number" step="any" required value={lat} onChange={e => setLat(e.target.value)} className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none bg-slate-50 font-mono" />
+              <label className="text-[10px] uppercase font-bold text-ink-400 block mb-1">Latitude</label>
+              <input type="number" step="any" required value={lat} onChange={e => setLat(e.target.value)} className="w-full text-xs font-medium px-3 py-2 border border-border-subtle rounded-xl focus:outline-none bg-surface-canvas font-mono" />
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Longitude</label>
-              <input type="number" step="any" required value={lon} onChange={e => setLon(e.target.value)} className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none bg-slate-50 font-mono" />
+              <label className="text-[10px] uppercase font-bold text-ink-400 block mb-1">Longitude</label>
+              <input type="number" step="any" required value={lon} onChange={e => setLon(e.target.value)} className="w-full text-xs font-medium px-3 py-2 border border-border-subtle rounded-xl focus:outline-none bg-surface-canvas font-mono" />
             </div>
           </div>
 
           <div className="flex space-x-2">
-            <button type="button" onClick={handleCaptureLocation} disabled={geoLoading} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] py-2 rounded-xl transition-all flex items-center justify-center space-x-1">
+            <button type="button" onClick={handleCaptureLocation} disabled={geoLoading} className="w-full bg-surface-card-hover hover:bg-surface-card-hover text-ink-900 font-bold text-[11px] py-2 rounded-xl transition-all flex items-center justify-center space-x-1">
               <Navigation className="w-3.5 h-3.5" />
               <span>{geoLoading ? "Locating..." : "Detect Live GPS"}</span>
             </button>
           </div>
 
           <div>
-            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Allowed Radius (Meters)</label>
-            <input type="number" required value={radius} onChange={e => setRadius(parseInt(e.target.value))} className="w-full text-xs font-medium px-3 py-2 border border-slate-200 rounded-xl focus:outline-none" />
+            <label className="text-[10px] uppercase font-bold text-ink-400 block mb-1">Allowed Radius (Meters)</label>
+            <input type="number" required value={radius} onChange={e => setRadius(parseInt(e.target.value))} className="w-full text-xs font-medium px-3 py-2 border border-border-subtle rounded-xl focus:outline-none" />
           </div>
 
-          <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1">
+          <button type="submit" className="w-full bg-brand hover:bg-brand-hover text-white font-bold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center space-x-1">
             <Plus className="w-4 h-4" />
-            <span>Deploy Branch Perimeter</span>
+            <span>Add Branch</span>
           </button>
         </form>
 
           {/* ACTIVE ROSTER CARD FEED */}
-          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">Active Authorized Outlets</h3>
+          <div className="lg:col-span-2 bg-white border border-border-subtle rounded-3xl p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-semibold uppercase text-ink-400 tracking-wider">Branches</h3>
             {branches.length === 0 ? (
-              <p className="text-xs font-medium text-slate-400 py-6 text-center">No structural branches configured yet.</p>
+              <p className="text-xs font-medium text-ink-400 py-6 text-center">No branches added yet.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {branches.map(br => (
-                  <div key={br.id} className="p-4 border border-slate-100 bg-slate-50/50 rounded-2xl flex flex-col justify-between space-y-3">
+                  <div key={br.id} className="p-4 border border-border-subtle bg-surface-card-hover/50 rounded-2xl flex flex-col justify-between space-y-3">
                     <div>
-                      <div className="flex items-center space-x-1.5 text-slate-900 font-black text-sm">
-                        <MapPin className="w-4 h-4 text-slate-500" />
+                      <div className="flex items-center space-x-1.5 text-ink-900 font-semibold text-sm">
+                        <MapPin className="w-4 h-4 text-ink-600" />
                         <span>{br.branch_name}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 font-medium mt-0.5 line-clamp-1">{br.address || 'No location address text logged'}</p>
-                      <div className="text-[10px] font-mono text-slate-500 mt-2 space-y-0.5 bg-white border border-slate-100 p-2 rounded-xl">
+                      <p className="text-[11px] text-ink-400 font-medium mt-0.5 line-clamp-1">{br.address || 'No address added'}</p>
+                      <div className="text-[10px] font-mono text-ink-600 mt-2 space-y-0.5 bg-white border border-border-subtle p-2 rounded-xl">
                         <p>LAT: {br.latitude}</p>
                         <p>LON: {br.longitude}</p>
                         <p className="text-teal-700 font-bold">FENCE: {br.allowed_radius_meters} meters</p>

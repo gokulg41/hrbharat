@@ -124,21 +124,21 @@ export default function EmployeeAttendancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#37352f]">
+    <div className="min-h-screen bg-white font-sans text-ink-900">
 
       {/* TOP BAR */}
-      <header className="border-b border-[#e9e9e7] bg-white sticky top-0 z-40">
+      <header className="border-b border-border-subtle bg-white sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-8 h-12 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-sm">
-            <div className="w-5 h-5 rounded bg-[#37352f] flex items-center justify-center shrink-0">
+            <div className="w-5 h-5 rounded bg-ink-900 flex items-center justify-center shrink-0">
               <span className="text-white text-[8px] font-bold">HB</span>
             </div>
-            <span className="text-[#c1c0bb]">/</span>
-            <span className="font-medium text-[#37352f]">Attendance</span>
+            <span className="text-ink-400">/</span>
+            <span className="font-medium text-ink-900">Attendance</span>
           </div>
           {activeCheckInRow && (
-            <div className="flex items-center gap-1.5 text-xs text-[#d44c47]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#d44c47] animate-pulse inline-block" />
+            <div className="flex items-center gap-1.5 text-xs text-status-danger">
+              <span className="w-1.5 h-1.5 rounded-full bg-status-danger animate-pulse inline-block" />
               Shift active
             </div>
           )}
@@ -150,7 +150,7 @@ export default function EmployeeAttendancePage() {
         {/* PAGE TITLE */}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Attendance</h1>
-          <p className="mt-1 text-sm text-[#9b9a97]">
+          <p className="mt-1 text-sm text-ink-400">
             {employee ? `${employee.full_name} · ${employee.employee_code}` : 'Verify your attendance with a photo and location.'}
           </p>
         </div>
@@ -158,9 +158,9 @@ export default function EmployeeAttendancePage() {
         {/* STATUS */}
         {status && (
           <div className={`text-sm px-4 py-2.5 rounded-md border ${
-            status.type === 'success' ? 'bg-[#edfbf3] border-[#b7ebcf] text-[#0f7b43]'
-            : status.type === 'error' ? 'bg-[#fdecea] border-[#f5c0bb] text-[#d44c47]'
-            : 'bg-[#f7f6f3] border-[#e9e9e7] text-[#787774]'
+            status.type === 'success' ? 'bg-status-success-bg border-status-success/30 text-status-success'
+            : status.type === 'error' ? 'bg-status-danger-bg border-status-danger/30 text-status-danger'
+            : 'bg-surface-card-hover border-border-subtle text-ink-600'
           }`}>
             {status.message}
           </div>
@@ -170,38 +170,38 @@ export default function EmployeeAttendancePage() {
 
           {/* ── CAMERA PANEL ── */}
           <div className="lg:col-span-5 space-y-4">
-            <p className="text-xs font-semibold text-[#9b9a97] uppercase tracking-widest flex items-center gap-2">
+            <p className="text-xs font-semibold text-ink-400 uppercase tracking-widest flex items-center gap-2">
               <Camera className="w-3.5 h-3.5" />
               {activeCheckInRow ? 'Punch Out' : 'Punch In'}
             </p>
 
             {/* Viewport */}
-            <div className="relative w-full aspect-square bg-[#111] rounded-lg overflow-hidden border border-[#e9e9e7]">
+            <div className="relative w-full aspect-square bg-[#111] rounded-lg overflow-hidden border border-border-subtle">
               {!capturedSelfie ? (
                 <>
                   <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover -scale-x-100" />
                   {streamActive ? (
                     <button
                       onClick={captureSnapshotToken}
-                      className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white hover:bg-[#f7f6f3] text-[#37352f] text-xs font-medium px-4 py-2 rounded-md border border-[#e9e9e7] flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm whitespace-nowrap"
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white hover:bg-surface-card-hover text-ink-900 text-xs font-medium px-4 py-2 rounded-md border border-border-subtle flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm whitespace-nowrap"
                     >
                       <Camera className="w-3.5 h-3.5" /> Capture Photo
                     </button>
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <p className="text-xs text-[#9b9a97]">Waiting for camera…</p>
+                      <p className="text-xs text-ink-400">Waiting for camera…</p>
                     </div>
                   )}
                 </>
               ) : (
                 <>
                   <img src={capturedSelfie} alt="Captured" className="w-full h-full object-cover" />
-                  <div className="absolute top-3 left-3 bg-[#edfbf3] border border-[#b7ebcf] text-[#0f7b43] text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <div className="absolute top-3 left-3 bg-status-success-bg border border-status-success/30 text-status-success text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Captured
                   </div>
                   <button
                     onClick={startCameraFeed}
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#37352f]/80 hover:bg-[#37352f] text-white text-xs font-medium px-4 py-2 rounded-md flex items-center gap-1.5 backdrop-blur-sm transition-colors cursor-pointer whitespace-nowrap"
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-ink-900/80 hover:bg-ink-900 text-white text-xs font-medium px-4 py-2 rounded-md flex items-center gap-1.5 backdrop-blur-sm transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <RefreshCw className="w-3.5 h-3.5" /> Retake
                   </button>
@@ -210,7 +210,7 @@ export default function EmployeeAttendancePage() {
             </div>
 
             {coordsString && (
-              <p className="text-xs text-[#9b9a97] flex items-center gap-1.5">
+              <p className="text-xs text-ink-400 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 shrink-0" /> {coordsString}
               </p>
             )}
@@ -221,8 +221,8 @@ export default function EmployeeAttendancePage() {
               disabled={checking || !employee || !capturedSelfie}
               className={`w-full flex items-center justify-center gap-2 text-sm font-medium py-2 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 activeCheckInRow
-                  ? 'bg-[#fdecea] text-[#d44c47] hover:bg-[#fad4d1] border border-[#f5c0bb]'
-                  : 'bg-[#37352f] text-white hover:bg-[#2d2c28]'
+                  ? 'bg-status-danger-bg text-status-danger hover:bg-status-danger-bg/70 border border-status-danger/30'
+                  : 'bg-brand text-white hover:bg-brand-hover'
               }`}
             >
               {checking ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -235,45 +235,45 @@ export default function EmployeeAttendancePage() {
           {/* ── SHIFT HISTORY ── */}
           <div className="lg:col-span-7">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-[#9b9a97] uppercase tracking-widest flex items-center gap-2">
+              <p className="text-xs font-semibold text-ink-400 uppercase tracking-widest flex items-center gap-2">
                 <Activity className="w-3.5 h-3.5" /> Shift History
               </p>
-              <span className="text-xs text-[#c1c0bb]">{attendanceLogs.length} records</span>
+              <span className="text-xs text-ink-400">{attendanceLogs.length} records</span>
             </div>
 
             {attendanceLogs.length === 0 ? (
-              <div className="py-16 text-center border border-dashed border-[#e9e9e7] rounded-lg">
-                <p className="text-sm text-[#c1c0bb]">No attendance records yet</p>
+              <div className="py-16 text-center border border-dashed border-border-subtle rounded-lg">
+                <p className="text-sm text-ink-400">No attendance records yet</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#e9e9e7] max-h-[520px] overflow-y-auto">
+              <div className="divide-y divide-border-subtle max-h-[520px] overflow-y-auto">
                 {attendanceLogs.map((log: any) => (
-                  <div key={log.id} className="py-3.5 flex items-start justify-between gap-4 hover:bg-[#f7f6f3] px-2 -mx-2 rounded-md transition-colors group">
+                  <div key={log.id} className="py-3.5 flex items-start justify-between gap-4 hover:bg-surface-card-hover px-2 -mx-2 rounded-md transition-colors group">
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="flex items-center gap-1.5 text-sm">
-                          <LogIn className="w-3.5 h-3.5 text-[#0f7b43] shrink-0" />
+                          <LogIn className="w-3.5 h-3.5 text-status-success shrink-0" />
                           {log.punch_in_time}
                         </span>
                         {log.punch_out_time ? (
                           <span className="flex items-center gap-1.5 text-sm">
-                            <LogOut className="w-3.5 h-3.5 text-[#d44c47] shrink-0" />
+                            <LogOut className="w-3.5 h-3.5 text-status-danger shrink-0" />
                             {log.punch_out_time}
                           </span>
                         ) : (
-                          <span className="text-xs text-[#d97706] bg-[#fef3c7] border border-[#fde68a] px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="text-xs text-status-warning bg-status-warning-bg border border-status-warning/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Circle className="w-2 h-2 fill-current" /> Active
                           </span>
                         )}
                       </div>
                       <div className="space-y-0.5">
                         {log.location_coords && (
-                          <p className="text-xs text-[#9b9a97] font-mono flex items-center gap-1 truncate">
+                          <p className="text-xs text-ink-400 font-mono flex items-center gap-1 truncate">
                             <MapPin className="w-3 h-3 shrink-0" /> In: {log.location_coords}
                           </p>
                         )}
                         {log.outbound_coords && (
-                          <p className="text-xs text-[#9b9a97] font-mono flex items-center gap-1 truncate">
+                          <p className="text-xs text-ink-400 font-mono flex items-center gap-1 truncate">
                             <MapPin className="w-3 h-3 shrink-0" /> Out: {log.outbound_coords}
                           </p>
                         )}
@@ -281,8 +281,8 @@ export default function EmployeeAttendancePage() {
                     </div>
                     <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border ${
                       log.punch_out_time
-                        ? 'text-[#787774] bg-[#f7f6f3] border-[#e9e9e7]'
-                        : 'text-[#0f7b43] bg-[#edfbf3] border-[#b7ebcf]'
+                        ? 'text-ink-600 bg-surface-card-hover border-border-subtle'
+                        : 'text-status-success bg-status-success-bg border-status-success/30'
                     }`}>
                       {log.punch_out_time ? 'Complete' : 'In progress'}
                     </span>

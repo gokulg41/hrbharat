@@ -118,16 +118,16 @@ export default function EmployeePayrollPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-[#9b9a97]">Loading…</p>
+      <div className="min-h-screen bg-surface-canvas flex items-center justify-center">
+        <p className="text-sm text-ink-600">Loading…</p>
       </div>
     );
   }
 
   if (!employee) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-[#9b9a97]">No payroll profile found.</p>
+      <div className="min-h-screen bg-surface-canvas flex items-center justify-center">
+        <p className="text-sm text-ink-600">No payroll profile found.</p>
       </div>
     );
   }
@@ -138,16 +138,16 @@ export default function EmployeePayrollPage() {
   const netTakeHome = baseSalary - pfDeduction - professionalTax;
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#37352f]">
+    <div className="min-h-screen bg-surface-canvas font-sans text-ink-900">
 
       {/* TOP BAR */}
-      <header className="border-b border-[#e9e9e7] sticky top-0 z-40 bg-white">
+      <header className="border-b border-border-subtle sticky top-0 z-40 bg-surface-canvas">
         <div className="max-w-4xl mx-auto px-8 h-12 flex items-center gap-1.5 text-sm">
-          <div className="w-5 h-5 rounded bg-[#37352f] flex items-center justify-center shrink-0">
+          <div className="w-5 h-5 rounded bg-brand flex items-center justify-center shrink-0">
             <span className="text-white text-[8px] font-bold">HB</span>
           </div>
-          <span className="text-[#c1c0bb]">/</span>
-          <span className="font-medium text-[#37352f]">Payroll</span>
+          <span className="text-ink-400">/</span>
+          <span className="font-medium text-ink-900">Payroll</span>
         </div>
       </header>
 
@@ -156,55 +156,55 @@ export default function EmployeePayrollPage() {
         {/* PAGE TITLE */}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Payroll</h1>
-          <p className="mt-1 text-sm text-[#9b9a97]">
+          <p className="mt-1 text-sm text-ink-600">
             {employee.full_name} · {employee.employee_code}
           </p>
         </div>
 
-        <hr className="border-[#e9e9e7]" />
+        <hr className="border-border-subtle" />
 
         {/* SALARY CALLOUTS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#e9e9e7] rounded-lg overflow-hidden border border-[#e9e9e7]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border-subtle rounded-lg overflow-hidden border border-border-subtle">
           {[
             { label: 'Gross Salary', value: `₹${baseSalary.toLocaleString('en-IN')}`, sub: 'per month' },
             { label: 'PF Deduction', value: `₹${pfDeduction.toLocaleString('en-IN')}`, sub: '12% of gross' },
             { label: 'Professional Tax', value: `₹${professionalTax.toLocaleString('en-IN')}`, sub: 'per month' },
             { label: 'Net Take-Home', value: `₹${netTakeHome.toLocaleString('en-IN')}`, sub: 'after deductions' },
           ].map((stat, i) => (
-            <div key={i} className="bg-white px-5 py-4">
-              <p className="text-xs text-[#9b9a97] mb-1">{stat.label}</p>
-              <p className="text-lg font-semibold text-[#37352f]">{stat.value}</p>
-              <p className="text-xs text-[#c1c0bb] mt-0.5">{stat.sub}</p>
+            <div key={i} className="bg-surface-card px-5 py-4">
+              <p className="text-xs text-ink-600 mb-1">{stat.label}</p>
+              <p className="text-lg font-semibold text-ink-900">{stat.value}</p>
+              <p className="text-xs text-ink-400 mt-0.5">{stat.sub}</p>
             </div>
           ))}
         </div>
 
-        <hr className="border-[#e9e9e7]" />
+        <hr className="border-border-subtle" />
 
         {/* PAYSLIPS */}
         <div>
-          <p className="text-xs font-semibold text-[#9b9a97] uppercase tracking-widest flex items-center gap-2 mb-4">
+          <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest flex items-center gap-2 mb-4">
             <FileCheck className="w-3.5 h-3.5" /> Pay Slips
           </p>
 
-          <div className="divide-y divide-[#e9e9e7]">
+          <div className="divide-y divide-border-subtle">
             {payrollReceipts.map((slip, idx) => (
-              <div key={idx} className="py-3.5 flex items-center justify-between gap-4 hover:bg-[#f7f6f3] px-2 -mx-2 rounded-md transition-colors">
+              <div key={idx} className="py-3.5 flex items-center justify-between gap-4 hover:bg-surface-card-hover px-2 -mx-2 rounded-md transition-colors">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium text-[#37352f]">{slip.month}</p>
-                  <p className="text-xs text-[#9b9a97] font-mono">{slip.ref}</p>
+                  <p className="text-sm font-medium text-ink-900">{slip.month}</p>
+                  <p className="text-xs text-ink-600 font-mono">{slip.ref}</p>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-sm font-medium text-[#37352f]">₹{Number(slip.ctc).toLocaleString('en-IN')}</p>
-                    <span className="text-[10px] font-medium text-[#0f7b43] bg-[#edfbf3] border border-[#b7ebcf] px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                    <p className="text-sm font-medium text-ink-900">₹{Number(slip.ctc).toLocaleString('en-IN')}</p>
+                    <span className="text-[10px] font-medium text-status-success bg-status-success-bg px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                       <ShieldCheck className="w-2.5 h-2.5" /> Settled
                     </span>
                   </div>
                   <button
                     onClick={() => generatePDFSlip(slip)}
                     disabled={generatingId === slip.ref}
-                    className="flex items-center gap-1.5 text-xs font-medium text-[#787774] hover:text-[#37352f] hover:bg-[#f7f6f3] border border-[#e9e9e7] px-3 py-1.5 rounded-md transition-all cursor-pointer disabled:opacity-40"
+                    className="flex items-center gap-1.5 text-xs font-medium text-ink-600 hover:text-ink-900 hover:bg-surface-card-hover border border-border-subtle px-3 py-1.5 rounded-md transition-all cursor-pointer disabled:opacity-40"
                     title="Download payslip PDF"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -219,22 +219,22 @@ export default function EmployeePayrollPage() {
         {/* BANK DETAILS */}
         {(employee.bank_account_number || employee.ifsc_code) && (
           <>
-            <hr className="border-[#e9e9e7]" />
+            <hr className="border-border-subtle" />
             <div>
-              <p className="text-xs font-semibold text-[#9b9a97] uppercase tracking-widest flex items-center gap-2 mb-4">
+              <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest flex items-center gap-2 mb-4">
                 <Landmark className="w-3.5 h-3.5" /> Bank Details
               </p>
               <div className="flex flex-wrap gap-3">
                 {employee.bank_account_number && (
-                  <div className="bg-[#f7f6f3] border border-[#e9e9e7] rounded-md px-4 py-3">
-                    <p className="text-xs text-[#9b9a97] mb-0.5">Account Number</p>
-                    <p className="text-sm font-mono font-medium text-[#37352f]">{employee.bank_account_number}</p>
+                  <div className="bg-surface-card-hover border border-border-subtle rounded-md px-4 py-3">
+                    <p className="text-xs text-ink-600 mb-0.5">Account Number</p>
+                    <p className="text-sm font-mono font-medium text-ink-900">{employee.bank_account_number}</p>
                   </div>
                 )}
                 {employee.ifsc_code && (
-                  <div className="bg-[#f7f6f3] border border-[#e9e9e7] rounded-md px-4 py-3">
-                    <p className="text-xs text-[#9b9a97] mb-0.5">IFSC Code</p>
-                    <p className="text-sm font-mono font-medium text-[#37352f]">{employee.ifsc_code}</p>
+                  <div className="bg-surface-card-hover border border-border-subtle rounded-md px-4 py-3">
+                    <p className="text-xs text-ink-600 mb-0.5">IFSC Code</p>
+                    <p className="text-sm font-mono font-medium text-ink-900">{employee.ifsc_code}</p>
                   </div>
                 )}
               </div>

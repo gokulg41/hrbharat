@@ -53,7 +53,7 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg'
 
 function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
   const map: Record<string, string> = {
-    gray:    'bg-stone-100 text-stone-500 border-stone-200',
+    gray:    'bg-surface-card-hover text-ink-600 border-border-subtle',
     teal:    'bg-teal-50 text-teal-700 border-teal-100',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     amber:   'bg-amber-50 text-amber-600 border-amber-100',
@@ -69,14 +69,14 @@ function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?
 
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl px-5 py-4 flex items-center gap-4">
-      <div className="w-10 h-10 rounded-lg bg-[#F0EAD9] border border-[#DDD5C0] flex items-center justify-center shrink-0">
+    <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl px-5 py-4 flex items-center gap-4">
+      <div className="w-10 h-10 rounded-lg bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans">{label}</p>
-        <p className="text-xl font-bold text-stone-900 font-sans leading-tight">{value}</p>
-        {sub && <p className="text-[10px] text-stone-400 font-sans mt-0.5">{sub}</p>}
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans">{label}</p>
+        <p className="text-xl font-bold text-ink-900 font-sans leading-tight">{value}</p>
+        {sub && <p className="text-[10px] text-ink-400 font-sans mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -93,7 +93,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handle}
-      className="ml-1 p-0.5 rounded text-stone-300 hover:text-stone-600 transition-colors"
+      className="ml-1 p-0.5 rounded text-ink-400 hover:text-ink-600 transition-colors"
       title="Copy"
     >
       {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
@@ -188,33 +188,33 @@ function OnboardModal({ onClose, onCreated, canMakeAdmin, currentAdminCount, max
 
   const field = (label: string, key: keyof typeof form, type = 'text', required = false) => (
     <div className="space-y-1">
-      <label className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans">
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans">
         {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
       </label>
       <input
         type={type}
         value={form[key] ?? ''}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        className="w-full text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300"
+        className="w-full text-sm font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400"
       />
     </div>
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-2xl w-full max-w-md shadow-xl">
+      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-2xl w-full max-w-md shadow-xl">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#E8E0CC] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center shrink-0">
-              <UserPlus className="w-4 h-4 text-stone-100" />
+            <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shrink-0">
+              <UserPlus className="w-4 h-4 text-ink-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-stone-900 font-sans">Onboard Employee</p>
-              <p className="text-[10px] text-stone-400 font-sans">Add a new member to the roster</p>
+              <p className="text-sm font-semibold text-ink-900 font-sans">Onboard Employee</p>
+              <p className="text-[10px] text-ink-400 font-sans">Add a new member to the roster</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 text-lg font-light">✕</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-900 text-lg font-light">✕</button>
         </div>
         {/* Fields */}
         <form onSubmit={handleSubmit}>
@@ -239,11 +239,11 @@ function OnboardModal({ onClose, onCreated, canMakeAdmin, currentAdminCount, max
 
             {/* Make Admin toggle — Growth/Business only */}
             {canMakeAdmin && (
-              <div className={`rounded-lg border px-3 py-3 space-y-1 ${isAdmin ? 'bg-stone-50 border-stone-300' : 'bg-[#FAF5EB] border-[#DDD5C0]'}`}>
+              <div className={`rounded-lg border px-3 py-3 space-y-1 ${isAdmin ? 'bg-surface-canvas border-border-subtle' : 'bg-[var(--surface-card)] border-[var(--border-subtle)]'}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-stone-800 font-sans">Make Admin</p>
-                    <p className="text-[10px] text-stone-400 font-sans mt-0.5">
+                    <p className="text-xs font-semibold text-ink-900 font-sans">Make Admin</p>
+                    <p className="text-[10px] text-ink-400 font-sans mt-0.5">
                       Admin can onboard and manage their own team
                     </p>
                   </div>
@@ -256,7 +256,7 @@ function OnboardModal({ onClose, onCreated, canMakeAdmin, currentAdminCount, max
                     <button
                       type="button"
                       onClick={() => setIsAdmin(v => !v)}
-                      className={`relative w-9 h-5 rounded-full transition-colors ${isAdmin ? 'bg-stone-900' : 'bg-stone-300'}`}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${isAdmin ? 'bg-brand' : 'bg-surface-card-hover'}`}
                     >
                       <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isAdmin ? 'translate-x-4' : 'translate-x-0'}`} />
                     </button>
@@ -281,18 +281,18 @@ function OnboardModal({ onClose, onCreated, canMakeAdmin, currentAdminCount, max
             </div>
           </div>
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-[#E8E0CC] flex justify-end gap-2">
+          <div className="px-6 py-4 border-t border-[var(--border-subtle)] flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-sans text-stone-500 hover:text-stone-800 transition-colors"
+              className="px-4 py-2 text-sm font-sans text-ink-600 hover:text-ink-900 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold font-sans bg-stone-900 hover:bg-stone-700 text-stone-50 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold font-sans bg-brand hover:bg-brand-hover text-white rounded-lg transition-colors disabled:opacity-50"
             >
               <UserPlus className="w-3.5 h-3.5" />
               {submitting ? 'Adding employee…' : 'Onboard Employee'}
@@ -329,28 +329,28 @@ function EditModal({ emp, onClose, onSave }: { emp: any; onClose: () => void; on
 
   const field = (label: string, key: keyof typeof form, type = 'text') => (
     <div className="space-y-1">
-      <label className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 font-sans">{label}</label>
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans">{label}</label>
       <input
         type={type}
         value={form[key] ?? ''}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        className="w-full text-sm font-sans text-stone-800 bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-stone-400 placeholder:text-stone-300"
+        className="w-full text-sm font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400"
       />
     </div>
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-2xl w-full max-w-md shadow-xl">
-        <div className="px-6 py-4 border-b border-[#E8E0CC] flex items-center justify-between">
+      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-2xl w-full max-w-md shadow-xl">
+        <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar name={emp.full_name} />
             <div>
-              <p className="text-sm font-semibold text-stone-900 font-sans">{emp.full_name}</p>
+              <p className="text-sm font-semibold text-ink-900 font-sans">{emp.full_name}</p>
               <Badge>{emp.employee_code}</Badge>
             </div>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 text-lg font-light">✕</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-900 text-lg font-light">✕</button>
         </div>
         <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
           {field('Full Name', 'full_name')}
@@ -368,17 +368,17 @@ function EditModal({ emp, onClose, onSave }: { emp: any; onClose: () => void; on
             {field('IFSC Code', 'ifsc_code')}
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-[#E8E0CC] flex justify-end gap-2">
+        <div className="px-6 py-4 border-t border-[var(--border-subtle)] flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-sans text-stone-500 hover:text-stone-800 transition-colors"
+            className="px-4 py-2 text-sm font-sans text-ink-600 hover:text-ink-900 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm font-semibold font-sans bg-stone-900 hover:bg-stone-700 text-stone-50 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-semibold font-sans bg-brand hover:bg-brand-hover text-white rounded-lg transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
@@ -538,26 +538,26 @@ export default function RosterPage() {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--surface-canvas)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-stone-900 flex items-center justify-center animate-pulse">
-            <span className="text-[11px] font-bold text-stone-100 font-sans">HR</span>
+          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center animate-pulse">
+            <span className="text-[11px] font-bold text-ink-400 font-sans">HR</span>
           </div>
-          <p className="text-xs text-stone-400 font-sans tracking-widest uppercase">Loading roster…</p>
+          <p className="text-xs text-ink-400 font-sans tracking-widest uppercase">Loading roster…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] p-4 md:p-8">
+    <div className="min-h-screen bg-[var(--surface-canvas)] p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
         {/* ── Header ── */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">Employee Roster</h1>
-            <p className="text-sm text-stone-500 font-sans mt-0.5">
+            <h1 className="text-2xl font-bold text-ink-900 font-sans tracking-tight">Employee Roster</h1>
+            <p className="text-sm text-ink-600 font-sans mt-0.5">
               {isOwner ? 'All onboarded employees in your workspace' : 'Your team members'}
             </p>
           </div>
@@ -565,7 +565,7 @@ export default function RosterPage() {
             {atLimit ? (
               <Link
                 href="/admin/settings/billing"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-200 text-xs font-semibold font-sans text-stone-500 transition-colors border border-stone-300"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-card-hover text-xs font-semibold font-sans text-ink-600 transition-colors border border-border-subtle"
                 title={`Employee limit reached (${maxEmployees}/${maxEmployees}). Upgrade to add more.`}
               >
                 <Lock className="w-3.5 h-3.5" />
@@ -574,7 +574,7 @@ export default function RosterPage() {
             ) : (
             <button
               onClick={() => setShowOnboard(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-900 hover:bg-stone-700 text-xs font-semibold font-sans text-stone-50 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover text-xs font-semibold font-sans text-white transition-colors"
             >
               <UserPlus className="w-3.5 h-3.5" />
               Onboard Employee
@@ -582,7 +582,7 @@ export default function RosterPage() {
             )}
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#DDD5C0] bg-[#FDF8F0] text-xs font-semibold font-sans text-stone-600 hover:bg-[#F0EAD9] hover:text-stone-900 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] text-xs font-semibold font-sans text-ink-600 hover:bg-[var(--surface-card-hover)] hover:text-ink-900 transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               Export CSV
@@ -593,19 +593,19 @@ export default function RosterPage() {
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
-            icon={<Users className="w-5 h-5 text-stone-500" />}
+            icon={<Users className="w-5 h-5 text-ink-600" />}
             label="Total Onboarded"
             value={`${employees.length} / ${limitLabel}`}
             sub={atLimit ? '⚠ Plan limit reached' : `${maxEmployees === Infinity ? 'Unlimited' : maxEmployees - employees.length + ' slots remaining'}`}
           />
           <StatCard
-            icon={<Building2 className="w-5 h-5 text-stone-500" />}
+            icon={<Building2 className="w-5 h-5 text-ink-600" />}
             label="Departments"
             value={deptCount.toString()}
             sub="across company"
           />
           <StatCard
-            icon={<IndianRupee className="w-5 h-5 text-stone-500" />}
+            icon={<IndianRupee className="w-5 h-5 text-ink-600" />}
             label="Monthly Payroll"
             value={`₹${totalSalary.toLocaleString('en-IN')}`}
             sub="gross total"
@@ -638,27 +638,27 @@ export default function RosterPage() {
         )}
 
         {/* ── Filters ── */}
-        <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl px-4 py-3 flex flex-col sm:flex-row gap-3">
+        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
             <input
               type="text"
               placeholder="Search by name, code, email or department…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm font-sans bg-[#FAF5EB] border border-[#DDD5C0] rounded-lg text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-400 transition-colors"
+              className="w-full pl-9 pr-3 py-2 text-sm font-sans bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-1 focus:ring-brand transition-colors"
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+            <Filter className="w-3.5 h-3.5 text-ink-400 shrink-0" />
             {departments.map(dept => (
               <button
                 key={dept}
                 onClick={() => setSelectedDept(dept)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-sans font-medium transition-colors ${
                   selectedDept === dept
-                    ? 'bg-stone-900 text-stone-100'
-                    : 'bg-[#F0EAD9] text-stone-500 hover:text-stone-800 border border-[#DDD5C0]'
+                    ? 'bg-brand text-ink-400'
+                    : 'bg-[var(--surface-card-hover)] text-ink-600 hover:text-ink-900 border border-[var(--border-subtle)]'
                 }`}
               >
                 {dept}
@@ -668,13 +668,13 @@ export default function RosterPage() {
         </div>
 
         {/* ── Sort bar ── */}
-        <div className="flex items-center gap-3 text-[11px] text-stone-400 font-sans px-1">
+        <div className="flex items-center gap-3 text-[11px] text-ink-400 font-sans px-1">
           <span>Sort by:</span>
           {(['name', 'salary'] as const).map(col => (
             <button
               key={col}
               onClick={() => toggleSort(col)}
-              className={`flex items-center gap-1 capitalize transition-colors ${sortBy === col ? 'text-stone-800 font-semibold' : 'hover:text-stone-600'}`}
+              className={`flex items-center gap-1 capitalize transition-colors ${sortBy === col ? 'text-ink-900 font-semibold' : 'hover:text-ink-600'}`}
             >
               {col} <SortIcon col={col} />
             </button>
@@ -683,12 +683,12 @@ export default function RosterPage() {
         </div>
 
         {/* ── Roster list ── */}
-        <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-xl overflow-hidden divide-y divide-[#E8E0CC]">
+        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden divide-y divide-[var(--border-subtle)]">
 
           {filtered.length === 0 ? (
             <div className="py-20 text-center">
-              <UserCheck className="w-8 h-8 text-stone-300 mx-auto mb-3" />
-              <p className="text-sm text-stone-400 font-sans italic">
+              <UserCheck className="w-8 h-8 text-ink-400 mx-auto mb-3" />
+              <p className="text-sm text-ink-400 font-sans italic">
                 {searchQuery || selectedDept !== 'All' ? 'No employees match your search.' : 'No employees onboarded yet.'}
               </p>
             </div>
@@ -700,7 +700,7 @@ export default function RosterPage() {
               <div key={emp.id}>
                 {/* ── Main row ── */}
                 <div
-                  className="px-5 py-4 flex items-center justify-between gap-3 hover:bg-[#F5F0E8] transition-colors cursor-pointer group"
+                  className="px-5 py-4 flex items-center justify-between gap-3 hover:bg-[var(--surface-canvas)] transition-colors cursor-pointer group"
                   onClick={() => setExpandedId(isExpanded ? null : emp.id)}
                 >
                   {/* Left: avatar + core info */}
@@ -708,7 +708,7 @@ export default function RosterPage() {
                     <Avatar name={emp.full_name} size="md" />
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center flex-wrap gap-1.5">
-                        <span className="text-sm font-semibold text-stone-900 font-sans">{emp.full_name}</span>
+                        <span className="text-sm font-semibold text-ink-900 font-sans">{emp.full_name}</span>
                         <Badge>{emp.employee_code}</Badge>
                         {emp.monthly_salary > 0 && (
                           <Badge color="emerald">₹{Number(emp.monthly_salary).toLocaleString('en-IN')}</Badge>
@@ -725,21 +725,21 @@ export default function RosterPage() {
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <button
                       onClick={e => { e.stopPropagation(); setEditingEmp(emp); }}
-                      className="flex items-center gap-1.5 mb-1 px-2.5 py-1 bg-stone-900 hover:bg-stone-700 text-stone-50 text-[10px] font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition-all font-sans"
+                      className="flex items-center gap-1.5 mb-1 px-2.5 py-1 bg-brand hover:bg-brand-hover text-white text-[10px] font-semibold rounded-lg opacity-0 group-hover:opacity-100 transition-all font-sans"
                     >
                       <Edit2 className="w-3 h-3" /> Edit
                     </button>
                     {emp.email && (
-                      <span className="flex items-center gap-1 text-[11px] text-stone-400 font-sans">
+                      <span className="flex items-center gap-1 text-[11px] text-ink-400 font-sans">
                         <Mail className="w-3 h-3" />{emp.email}
                       </span>
                     )}
                     {emp.phone_number && (
-                      <span className="flex items-center gap-1 text-[11px] text-stone-400 font-sans">
+                      <span className="flex items-center gap-1 text-[11px] text-ink-400 font-sans">
                         <Phone className="w-3 h-3" />{emp.phone_number}
                       </span>
                     )}
-                    <span className="text-stone-300">
+                    <span className="text-ink-400">
                       {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </span>
                   </div>
@@ -747,24 +747,24 @@ export default function RosterPage() {
 
                 {/* ── Expanded detail panel ── */}
                 {isExpanded && (
-                  <div className="bg-[#F5F0E8] border-t border-[#E8E0CC] px-6 py-5 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div className="bg-[var(--surface-canvas)] border-t border-[var(--border-subtle)] px-6 py-5 grid grid-cols-1 sm:grid-cols-3 gap-6">
 
                     {/* Credentials */}
                     <div className="space-y-2">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-stone-400 font-sans">Login Credentials</p>
-                      <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-lg px-3 py-2.5 space-y-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-ink-400 font-sans">Login Credentials</p>
+                      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 space-y-2">
                         <div>
-                          <p className="text-[9px] text-stone-400 font-sans uppercase tracking-wider mb-0.5">Email / Username</p>
-                          <div className="flex items-center text-xs text-stone-700 font-sans">
-                            <Mail className="w-3 h-3 text-stone-400 mr-1.5 shrink-0" />
+                          <p className="text-[9px] text-ink-400 font-sans uppercase tracking-wider mb-0.5">Email / Username</p>
+                          <div className="flex items-center text-xs text-ink-900 font-sans">
+                            <Mail className="w-3 h-3 text-ink-400 mr-1.5 shrink-0" />
                             {emp.email || '—'}
                             {emp.email && <CopyButton text={emp.email} />}
                           </div>
                         </div>
                         <div>
-                          <p className="text-[9px] text-stone-400 font-sans uppercase tracking-wider mb-0.5">Temp Password</p>
-                          <div className="flex items-center text-xs text-stone-700 font-sans font-medium">
-                            <Key className="w-3 h-3 text-stone-400 mr-1.5 shrink-0" />
+                          <p className="text-[9px] text-ink-400 font-sans uppercase tracking-wider mb-0.5">Temp Password</p>
+                          <div className="flex items-center text-xs text-ink-900 font-sans font-medium">
+                            <Key className="w-3 h-3 text-ink-400 mr-1.5 shrink-0" />
                             {tempPassword}
                             <CopyButton text={tempPassword} />
                           </div>
@@ -774,19 +774,19 @@ export default function RosterPage() {
 
                     {/* Role */}
                     <div className="space-y-2">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-stone-400 font-sans">Role & Department</p>
-                      <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-lg px-3 py-2.5 space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-stone-700 font-sans">
-                          <Briefcase className="w-3 h-3 text-stone-400 shrink-0" />
-                          {emp.designation || <span className="text-stone-300 italic">No designation</span>}
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-ink-400 font-sans">Role & Department</p>
+                      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-ink-900 font-sans">
+                          <Briefcase className="w-3 h-3 text-ink-400 shrink-0" />
+                          {emp.designation || <span className="text-ink-400 italic">No designation</span>}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-stone-700 font-sans">
-                          <Building2 className="w-3 h-3 text-stone-400 shrink-0" />
-                          {emp.department || <span className="text-stone-300 italic">No department</span>}
+                        <div className="flex items-center gap-2 text-xs text-ink-900 font-sans">
+                          <Building2 className="w-3 h-3 text-ink-400 shrink-0" />
+                          {emp.department || <span className="text-ink-400 italic">No department</span>}
                         </div>
                         {emp.phone_number && (
-                          <div className="flex items-center gap-2 text-xs text-stone-700 font-sans">
-                            <Phone className="w-3 h-3 text-stone-400 shrink-0" />
+                          <div className="flex items-center gap-2 text-xs text-ink-900 font-sans">
+                            <Phone className="w-3 h-3 text-ink-400 shrink-0" />
                             {emp.phone_number}
                           </div>
                         )}
@@ -795,20 +795,20 @@ export default function RosterPage() {
 
                     {/* Bank */}
                     <div className="space-y-2">
-                      <p className="text-[9px] font-semibold uppercase tracking-widest text-stone-400 font-sans">Bank Details</p>
+                      <p className="text-[9px] font-semibold uppercase tracking-widest text-ink-400 font-sans">Bank Details</p>
                       {emp.bank_account_number || emp.ifsc_code ? (
-                        <div className="bg-[#FDF8F0] border border-[#DDD5C0] rounded-lg px-3 py-2.5 space-y-2">
+                        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 space-y-2">
                           <div>
-                            <p className="text-[9px] text-stone-400 font-sans uppercase tracking-wider mb-0.5">Account Number</p>
-                            <div className="flex items-center text-xs text-stone-700 font-sans font-medium tabular-nums">
+                            <p className="text-[9px] text-ink-400 font-sans uppercase tracking-wider mb-0.5">Account Number</p>
+                            <div className="flex items-center text-xs text-ink-900 font-sans font-medium tabular-nums">
                               {emp.bank_account_number || '—'}
                               {emp.bank_account_number && <CopyButton text={emp.bank_account_number} />}
                             </div>
                           </div>
                           {emp.ifsc_code && (
                             <div>
-                              <p className="text-[9px] text-stone-400 font-sans uppercase tracking-wider mb-0.5">IFSC Code</p>
-                              <div className="flex items-center text-xs text-stone-700 font-sans">
+                              <p className="text-[9px] text-ink-400 font-sans uppercase tracking-wider mb-0.5">IFSC Code</p>
+                              <div className="flex items-center text-xs text-ink-900 font-sans">
                                 {emp.ifsc_code}
                                 <CopyButton text={emp.ifsc_code} />
                               </div>
@@ -816,7 +816,7 @@ export default function RosterPage() {
                           )}
                         </div>
                       ) : (
-                        <p className="text-xs text-stone-300 font-sans italic">No bank details on file</p>
+                        <p className="text-xs text-ink-400 font-sans italic">No bank details on file</p>
                       )}
                     </div>
 
