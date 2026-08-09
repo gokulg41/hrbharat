@@ -18,6 +18,7 @@ import {
   X,
   Lock,
   Zap,
+  TrendingUp,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
@@ -96,7 +97,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       label: 'Insights',
       items: [
         { name: 'Reports', href: '/admin/reports', icon: Users },
-        { name: 'Analytics', icon: Users, soon: true },
+        { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
       ],
     },
     {
