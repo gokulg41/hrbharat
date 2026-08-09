@@ -588,7 +588,7 @@ export default function TeamSchedulePage() {
         </div>
         <button
           onClick={() => setShowShiftModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-brand hover:bg-brand-hover text-white text-sm font-semibold font-sans rounded-lg transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold font-sans rounded-lg transition-colors shadow-sm border border-[#2563EB] cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Create Shift
         </button>
