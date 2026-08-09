@@ -28,6 +28,7 @@ import {
   Building2,
   Loader2,
   Lock,
+  UserPlus,
 } from "lucide-react";
 import PlanGate from "@/components/PlanGate";
 import { usePlan } from "@/lib/usePlan";
@@ -183,7 +184,26 @@ export default function AdminTabsView({
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-ink-400">No employees found</td></tr>
+                <tr>
+                  <td colSpan={5} className="p-0">
+                    <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
+                      <div className="w-11 h-11 rounded-full bg-brand-subtle flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-brand" />
+                      </div>
+                      {searchQuery ? (
+                        <>
+                          <p className="text-sm font-semibold text-ink-900">No matches for "{searchQuery}"</p>
+                          <p className="text-xs text-ink-400 max-w-xs">Try a different name, code, or department.</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold text-ink-900">Add your first employee</p>
+                          <p className="text-xs text-ink-400 max-w-xs">Your roster, payroll, and attendance will show up here once you onboard someone.</p>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               ) : filtered.map((emp) => (
                 <tr key={emp.id} className="hover:bg-surface-card-hover">
                   <td className="px-4 py-3">

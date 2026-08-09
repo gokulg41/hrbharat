@@ -395,19 +395,50 @@ export default function PremiumAdminUnifiedDashboard() {
           <div className="space-y-6">
 
             {/* Metric strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--border-subtle)] rounded-xl overflow-hidden border border-[var(--border-subtle)]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: 'Active Roster', value: String(employees.length), icon: <Users className="w-3.5 h-3.5" />, accent: 'text-teal-600' },
-                { label: 'Monthly Payroll', value: `₹${totalPayrollLiability.toLocaleString('en-IN')}`, icon: <DollarSign className="w-3.5 h-3.5" />, accent: 'text-emerald-600' },
-                { label: 'Pending Reviews', value: String(leaveRequests.length + advanceRequests.length + regularizations.length), icon: <Briefcase className="w-3.5 h-3.5" />, accent: leaveRequests.length + advanceRequests.length + regularizations.length > 0 ? 'text-amber-600' : 'text-ink-400' },
-                { label: 'Attendance Rate', value: `${currentAttendanceRate}%`, icon: <Activity className="w-3.5 h-3.5" />, accent: 'text-ink-600' },
+                {
+                  label: 'Active Roster',
+                  value: String(employees.length),
+                  icon: <Users className="w-4 h-4" />,
+                  iconBg: 'bg-teal-50',
+                  iconColor: 'text-teal-700',
+                  sub: employees.length === 0 ? 'No hires yet' : `${employees.length} on payroll`,
+                },
+                {
+                  label: 'Monthly Payroll',
+                  value: `₹${totalPayrollLiability.toLocaleString('en-IN')}`,
+                  icon: <DollarSign className="w-4 h-4" />,
+                  iconBg: 'bg-emerald-50',
+                  iconColor: 'text-emerald-700',
+                  sub: totalPayrollLiability === 0 ? 'Runs after roster is set' : 'Current cycle',
+                },
+                {
+                  label: 'Pending Reviews',
+                  value: String(leaveRequests.length + advanceRequests.length + regularizations.length),
+                  icon: <Briefcase className="w-4 h-4" />,
+                  iconBg: 'bg-amber-50',
+                  iconColor: 'text-amber-700',
+                  sub: leaveRequests.length + advanceRequests.length + regularizations.length > 0 ? 'Needs attention' : 'All caught up',
+                },
+                {
+                  label: 'Attendance Rate',
+                  value: employees.length === 0 ? '—' : `${currentAttendanceRate}%`,
+                  icon: <Activity className="w-4 h-4" />,
+                  iconBg: 'bg-brand-subtle',
+                  iconColor: 'text-brand',
+                  sub: employees.length === 0 ? 'Needs first check-in' : `${todayAttendance.length} present today`,
+                },
               ].map((m) => (
-                <div key={m.label} className="bg-[var(--surface-card)] px-5 py-5 flex flex-col gap-2">
-                  <div className={`flex items-center gap-1.5 font-sans ${m.accent}`}>
+                <div key={m.label} className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl px-5 py-4 flex flex-col gap-3">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${m.iconBg} ${m.iconColor}`}>
                     {m.icon}
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{m.label}</span>
                   </div>
-                  <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none">{m.value}</span>
+                  <div>
+                    <span className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 block mb-1">{m.label}</span>
+                    <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none block">{m.value}</span>
+                    <span className="text-[11px] text-ink-400 font-sans block mt-1.5">{m.sub}</span>
+                  </div>
                 </div>
               ))}
             </div>
