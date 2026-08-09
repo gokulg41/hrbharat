@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict R3aaFRh1aobesOm18vrIrZpXDiDyLyJlH9XUOGl8dJdTt2tZhC8SEi7GzuVQIBR
-
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.4
 
@@ -88,9 +86,9 @@ CREATE FUNCTION public.handle_invited_user() RETURNS trigger
 BEGIN
   INSERT INTO public.profiles (id, full_name, role, company_id)
   VALUES (
-    NEW.id, 
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Teammate'), 
-    'employee', 
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Teammate'),
+    'employee',
     (NEW.raw_user_meta_data->>'company_id')::uuid
   );
   RETURN NEW;
@@ -112,7 +110,7 @@ BEGIN
         COALESCE(NEW.raw_user_meta_data->>'full_name', 'New Team Member'),
         COALESCE(NEW.raw_user_meta_data->>'role', 'employee')
     )
-    ON CONFLICT (id) DO NOTHING; -- Prevents duplicate race condition crashes with front-end code
+    ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
 END;
 $$;
@@ -126,16 +124,14 @@ CREATE FUNCTION public.process_monthly_leave_accrual() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
-  -- Insert balances if they don't exist yet for any worker
   INSERT INTO public.leave_balances (employee_id, company_id, allocated_leaves, remaining_leaves)
-  SELECT id, company_id, 1.25, 1.25 
-  FROM public.employees 
+  SELECT id, company_id, 1.25, 1.25
+  FROM public.employees
   WHERE status = 'Active'
   ON CONFLICT DO NOTHING;
 
-  -- Update existing active workers with their monthly credit allocation
   UPDATE public.leave_balances
-  SET 
+  SET
     allocated_leaves = allocated_leaves + 1.25,
     remaining_leaves = remaining_leaves + 1.25,
     updated_at = now()
@@ -159,98 +155,60 @@ DECLARE
     date_today TEXT;
     real_instance_id UUID;
 BEGIN
-    -- 1. Pre-generate tracking parameters and unique UUIDs
     new_user_id := gen_random_uuid();
     generated_company_uuid := gen_random_uuid();
     human_readable_code := 'COM-' || floor(random() * (900000) + 100000)::text;
     date_today := to_char(current_date, 'YYYY-MM-DD');
 
-    -- 2. DYNAMICALLY CAPTURE YOUR SYSTEM'S TRUE INSTANCE ID
-    -- This ensures your project's GoTrue instance perfectly recognizes the user
     SELECT instance_id INTO real_instance_id FROM auth.users LIMIT 1;
-    
-    -- Fallback safety check in case this is a completely empty database instance
+
     IF real_instance_id IS NULL THEN
         real_instance_id := '00000000-0000-0000-0000-000000000000';
     END IF;
 
-    -- 3. Insert into public.companies matching your EXACT required columns
     INSERT INTO public.companies (
-        id, 
-        owner_id, 
-        name, 
-        business_type, 
-        address, 
-        phone
+        id, owner_id, name, business_type, address, phone
     )
     VALUES (
-        generated_company_uuid, 
-        new_user_id, 
-        company_name, 
-        'SaaS', 
-        'Corporate Headquarters Setup',  
-        '0000000000' 
+        generated_company_uuid, new_user_id, company_name, 'SaaS',
+        'Corporate Headquarters Setup', '0000000000'
     );
 
-    -- 4. Provision the authentic user profile using the real instance_id variable
     INSERT INTO auth.users (
-        instance_id, -- Linked directly to your real container identity
-        id, email, encrypted_password, 
-        email_confirmed_at, recovery_sent_at, last_sign_in_at, 
-        raw_app_meta_data, raw_user_meta_data, 
-        created_at, updated_at, confirmation_token, 
+        instance_id, id, email, encrypted_password,
+        email_confirmed_at, recovery_sent_at, last_sign_in_at,
+        raw_app_meta_data, raw_user_meta_data,
+        created_at, updated_at, confirmation_token,
         email_change, email_change_token_new, recovery_token,
-        aud, role -- Explicitly set standard GoTrue compliance keys
+        aud, role
     )
     VALUES (
-        real_instance_id,
-        new_user_id, 
-        admin_email,
-        extensions.crypt(admin_password, extensions.gen_salt('bf', 10)), 
+        real_instance_id, new_user_id, admin_email,
+        extensions.crypt(admin_password, extensions.gen_salt('bf', 10)),
         now(), now(), now(),
         '{"provider":"email","providers":["email"]}',
         jsonb_build_object(
-            'full_name', admin_name, 
-            'role', 'Admin', 
-            'company_name', company_name, 
-            'company_id', generated_company_uuid
+            'full_name', admin_name, 'role', 'Admin',
+            'company_name', company_name, 'company_id', generated_company_uuid
         ),
         now(), now(), '', '', '', '',
         'authenticated', 'authenticated'
     );
 
-    -- 5. Insert into public.employees matching your EXACT required columns
     INSERT INTO public.employees (
-        id, 
-        company_id,       
-        employee_code, 
-        full_name, 
-        email, 
-        phone_number,     
-        designation, 
-        department, 
-        monthly_salary, 
-        joining_date
+        id, company_id, employee_code, full_name, email, phone_number,
+        designation, department, monthly_salary, joining_date
     )
     VALUES (
-        new_user_id,
-        generated_company_uuid, 
-        human_readable_code || '-ADMIN', 
-        admin_name,
-        admin_email,
-        '0000000000', 
-        'Owner',
-        'Management',
-        1.00, 
-        date_today::date 
+        new_user_id, generated_company_uuid, human_readable_code || '-ADMIN',
+        admin_name, admin_email, '0000000000', 'Owner', 'Management',
+        1.00, date_today::date
     );
 
-    -- 6. Populate basic identity profile layer
     INSERT INTO public.profiles (id, full_name, role, company_id, updated_at)
     VALUES (new_user_id, admin_name, 'Admin', generated_company_uuid::text, now())
     ON CONFLICT (id) DO NOTHING;
 
-    -- Return the clean workspace string straight back to Next.js 15 frontend
     RETURN generated_company_uuid::text;
 END;
 $$;
@@ -271,10 +229,6 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
---
--- Name: advance_salary_requests; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.advance_salary_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -284,11 +238,6 @@ CREATE TABLE public.advance_salary_requests (
     created_at timestamp with time zone DEFAULT now(),
     employee_id uuid NOT NULL
 );
-
-
---
--- Name: advances; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.advances (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -304,11 +253,6 @@ CREATE TABLE public.advances (
     CONSTRAINT advances_repayment_type_check CHECK (((repayment_type)::text = ANY ((ARRAY['full_next_month'::character varying, 'emi'::character varying])::text[]))),
     CONSTRAINT advances_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying])::text[])))
 );
-
-
---
--- Name: attendance; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.attendance (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
@@ -336,11 +280,6 @@ CREATE TABLE public.attendance (
     CONSTRAINT attendance_status_check CHECK ((status = ANY (ARRAY['Present'::text, 'Absent'::text, 'Late'::text, 'Half Day'::text, 'On Leave'::text])))
 );
 
-
---
--- Name: attendance_regularizations; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.attendance_regularizations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -354,11 +293,6 @@ CREATE TABLE public.attendance_regularizations (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -371,11 +305,6 @@ CREATE TABLE public.audit_logs (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: branches; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.branches (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -386,11 +315,6 @@ CREATE TABLE public.branches (
     allowed_radius_meters integer DEFAULT 100,
     created_at timestamp with time zone DEFAULT now()
 );
-
-
---
--- Name: companies; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.companies (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
@@ -414,11 +338,6 @@ CREATE TABLE public.companies (
     trial_ends_at timestamp with time zone
 );
 
-
---
--- Name: company_settings; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.company_settings (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -428,11 +347,6 @@ CREATE TABLE public.company_settings (
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     allowed_ip text
 );
-
-
---
--- Name: company_shifts; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.company_shifts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -444,11 +358,6 @@ CREATE TABLE public.company_shifts (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: daily_tasks; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.daily_tasks (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -459,11 +368,6 @@ CREATE TABLE public.daily_tasks (
     submitted_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
-
---
--- Name: demo_requests; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.demo_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -484,11 +388,6 @@ CREATE TABLE public.demo_requests (
     CONSTRAINT demo_requests_status_check CHECK ((status = ANY (ARRAY['new'::text, 'contacted'::text, 'scheduled'::text, 'converted'::text, 'dropped'::text]))),
     CONSTRAINT demo_requests_work_email_check CHECK ((work_email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'::text))
 );
-
-
---
--- Name: employees; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.employees (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
@@ -529,11 +428,6 @@ CREATE TABLE public.employees (
     manager_id uuid
 );
 
-
---
--- Name: expense_claims; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.expense_claims (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -547,11 +441,6 @@ CREATE TABLE public.expense_claims (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: leave_balances; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.leave_balances (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     employee_id uuid,
@@ -561,11 +450,6 @@ CREATE TABLE public.leave_balances (
     remaining_leaves numeric(4,1) DEFAULT 15.0,
     updated_at timestamp with time zone DEFAULT now()
 );
-
-
---
--- Name: leave_requests; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.leave_requests (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
@@ -580,11 +464,6 @@ CREATE TABLE public.leave_requests (
     CONSTRAINT leave_requests_leave_type_check CHECK ((leave_type = ANY (ARRAY['Casual Leave'::text, 'Sick Leave'::text, 'Unpaid Leave'::text]))),
     CONSTRAINT leave_requests_status_check CHECK ((status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Rejected'::text])))
 );
-
-
---
--- Name: payroll; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.payroll (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
@@ -604,11 +483,6 @@ CREATE TABLE public.payroll (
     CONSTRAINT payroll_payment_status_check CHECK ((payment_status = ANY (ARRAY['Pending'::text, 'Paid'::text, 'Failed'::text])))
 );
 
-
---
--- Name: reimbursements; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.reimbursements (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -620,11 +494,6 @@ CREATE TABLE public.reimbursements (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT reimbursements_status_check CHECK ((status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Rejected'::text])))
 );
-
-
---
--- Name: salary_advances; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.salary_advances (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -638,11 +507,6 @@ CREATE TABLE public.salary_advances (
     created_at timestamp with time zone DEFAULT now(),
     CONSTRAINT salary_advances_status_check CHECK ((status = ANY (ARRAY['Active'::text, 'Settled'::text])))
 );
-
-
---
--- Name: payroll_calculations; Type: VIEW; Schema: public; Owner: -
---
 
 CREATE VIEW public.payroll_calculations AS
  SELECT e.id AS employee_id,
@@ -674,11 +538,6 @@ CREATE VIEW public.payroll_calculations AS
           GROUP BY salary_advances.employee_id) adv ON ((e.id = adv.employee_id)))
   WHERE (e.status = 'Active'::text);
 
-
---
--- Name: payroll_ledger; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.payroll_ledger (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -696,11 +555,6 @@ CREATE TABLE public.payroll_ledger (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: payroll_processed; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.payroll_processed (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -716,11 +570,6 @@ CREATE TABLE public.payroll_processed (
     CONSTRAINT payroll_processed_payout_status_check CHECK ((payout_status = ANY (ARRAY['Unpaid'::text, 'Processing'::text, 'Paid'::text])))
 );
 
-
---
--- Name: payslips; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.payslips (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     payroll_id uuid NOT NULL,
@@ -735,11 +584,6 @@ CREATE TABLE public.payslips (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: profiles; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.profiles (
     id uuid NOT NULL,
     updated_at timestamp with time zone,
@@ -752,11 +596,6 @@ CREATE TABLE public.profiles (
     must_reset_password boolean DEFAULT true
 );
 
-
---
--- Name: shifts; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.shifts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -766,11 +605,6 @@ CREATE TABLE public.shifts (
     grace_period_minutes integer DEFAULT 15,
     created_at timestamp with time zone DEFAULT now()
 );
-
-
---
--- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
---
 
 CREATE TABLE public.subscriptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -792,11 +626,6 @@ CREATE TABLE public.subscriptions (
     CONSTRAINT subscriptions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'trialing'::text, 'active'::text, 'cancelled'::text, 'failed'::text])))
 );
 
-
---
--- Name: system_audit_logs; Type: TABLE; Schema: public; Owner: -
---
-
 CREATE TABLE public.system_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     company_id uuid,
@@ -806,1046 +635,138 @@ CREATE TABLE public.system_audit_logs (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-
---
--- Name: advance_salary_requests advance_salary_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.advance_salary_requests
-    ADD CONSTRAINT advance_salary_requests_pkey PRIMARY KEY (id);
-
-
---
--- Name: advances advances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.advances
-    ADD CONSTRAINT advances_pkey PRIMARY KEY (id);
-
-
---
--- Name: attendance attendance_employee_id_date_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT attendance_employee_id_date_key UNIQUE (employee_id, date);
-
-
---
--- Name: attendance attendance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT attendance_pkey PRIMARY KEY (id);
-
-
---
--- Name: attendance_regularizations attendance_regularizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance_regularizations
-    ADD CONSTRAINT attendance_regularizations_pkey PRIMARY KEY (id);
-
-
---
--- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.audit_logs
-    ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: branches branches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.branches
-    ADD CONSTRAINT branches_pkey PRIMARY KEY (id);
-
-
---
--- Name: companies companies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.companies
-    ADD CONSTRAINT companies_pkey PRIMARY KEY (id);
-
-
---
--- Name: company_settings company_settings_company_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.company_settings
-    ADD CONSTRAINT company_settings_company_id_key UNIQUE (company_id);
-
-
---
--- Name: company_settings company_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.company_settings
-    ADD CONSTRAINT company_settings_pkey PRIMARY KEY (id);
-
-
---
--- Name: company_shifts company_shifts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.company_shifts
-    ADD CONSTRAINT company_shifts_pkey PRIMARY KEY (id);
-
-
---
--- Name: daily_tasks daily_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.daily_tasks
-    ADD CONSTRAINT daily_tasks_pkey PRIMARY KEY (id);
-
-
---
--- Name: demo_requests demo_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.demo_requests
-    ADD CONSTRAINT demo_requests_pkey PRIMARY KEY (id);
-
-
---
--- Name: employees employees_auth_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_auth_user_id_key UNIQUE (auth_user_id);
-
-
---
--- Name: employees employees_company_id_employee_code_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_company_id_employee_code_key UNIQUE (company_id, employee_code);
-
-
---
--- Name: employees employees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_pkey PRIMARY KEY (id);
-
-
---
--- Name: expense_claims expense_claims_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.expense_claims
-    ADD CONSTRAINT expense_claims_pkey PRIMARY KEY (id);
-
-
---
--- Name: leave_balances leave_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.leave_balances
-    ADD CONSTRAINT leave_balances_pkey PRIMARY KEY (id);
-
-
---
--- Name: leave_requests leave_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.leave_requests
-    ADD CONSTRAINT leave_requests_pkey PRIMARY KEY (id);
-
-
---
--- Name: payroll payroll_employee_id_month_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll
-    ADD CONSTRAINT payroll_employee_id_month_key UNIQUE (employee_id, month);
-
-
---
--- Name: payroll_ledger payroll_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll_ledger
-    ADD CONSTRAINT payroll_ledger_pkey PRIMARY KEY (id);
-
-
---
--- Name: payroll payroll_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll
-    ADD CONSTRAINT payroll_pkey PRIMARY KEY (id);
-
-
---
--- Name: payroll_processed payroll_processed_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll_processed
-    ADD CONSTRAINT payroll_processed_pkey PRIMARY KEY (id);
-
-
---
--- Name: payslips payslips_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payslips
-    ADD CONSTRAINT payslips_pkey PRIMARY KEY (id);
-
-
---
--- Name: profiles profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.profiles
-    ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
-
-
---
--- Name: reimbursements reimbursements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reimbursements
-    ADD CONSTRAINT reimbursements_pkey PRIMARY KEY (id);
-
-
---
--- Name: salary_advances salary_advances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.salary_advances
-    ADD CONSTRAINT salary_advances_pkey PRIMARY KEY (id);
-
-
---
--- Name: shifts shifts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.shifts
-    ADD CONSTRAINT shifts_pkey PRIMARY KEY (id);
-
-
---
--- Name: subscriptions subscriptions_cashfree_order_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_cashfree_order_id_unique UNIQUE (cashfree_order_id);
-
-
---
--- Name: subscriptions subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
-
-
---
--- Name: system_audit_logs system_audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.system_audit_logs
-    ADD CONSTRAINT system_audit_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: demo_requests_created_at_idx; Type: INDEX; Schema: public; Owner: -
---
+ALTER TABLE ONLY public.advance_salary_requests ADD CONSTRAINT advance_salary_requests_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.advances ADD CONSTRAINT advances_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.attendance ADD CONSTRAINT attendance_employee_id_date_key UNIQUE (employee_id, date);
+ALTER TABLE ONLY public.attendance ADD CONSTRAINT attendance_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.attendance_regularizations ADD CONSTRAINT attendance_regularizations_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.audit_logs ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.branches ADD CONSTRAINT branches_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.companies ADD CONSTRAINT companies_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.company_settings ADD CONSTRAINT company_settings_company_id_key UNIQUE (company_id);
+ALTER TABLE ONLY public.company_settings ADD CONSTRAINT company_settings_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.company_shifts ADD CONSTRAINT company_shifts_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.daily_tasks ADD CONSTRAINT daily_tasks_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.demo_requests ADD CONSTRAINT demo_requests_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_auth_user_id_key UNIQUE (auth_user_id);
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_company_id_employee_code_key UNIQUE (company_id, employee_code);
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.expense_claims ADD CONSTRAINT expense_claims_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.leave_balances ADD CONSTRAINT leave_balances_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.leave_requests ADD CONSTRAINT leave_requests_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.payroll ADD CONSTRAINT payroll_employee_id_month_key UNIQUE (employee_id, month);
+ALTER TABLE ONLY public.payroll_ledger ADD CONSTRAINT payroll_ledger_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.payroll ADD CONSTRAINT payroll_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.payroll_processed ADD CONSTRAINT payroll_processed_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.payslips ADD CONSTRAINT payslips_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.reimbursements ADD CONSTRAINT reimbursements_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.salary_advances ADD CONSTRAINT salary_advances_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.shifts ADD CONSTRAINT shifts_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.subscriptions ADD CONSTRAINT subscriptions_cashfree_order_id_unique UNIQUE (cashfree_order_id);
+ALTER TABLE ONLY public.subscriptions ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.system_audit_logs ADD CONSTRAINT system_audit_logs_pkey PRIMARY KEY (id);
 
 CREATE INDEX demo_requests_created_at_idx ON public.demo_requests USING btree (created_at DESC);
-
-
---
--- Name: demo_requests_status_idx; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX demo_requests_status_idx ON public.demo_requests USING btree (status);
-
-
---
--- Name: idx_attendance_date; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attendance_date ON public.attendance USING btree (company_id, date);
-
-
---
--- Name: idx_attendance_employee; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_attendance_employee ON public.attendance USING btree (employee_id);
-
-
---
--- Name: idx_companies_owner; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_companies_owner ON public.companies USING btree (owner_id);
-
-
---
--- Name: idx_employees_company; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_employees_company ON public.employees USING btree (company_id);
-
-
---
--- Name: idx_leave_company; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_leave_company ON public.leave_requests USING btree (company_id);
-
-
---
--- Name: idx_payroll_month; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_payroll_month ON public.payroll USING btree (company_id, month);
-
-
---
--- Name: idx_subscriptions_company_id; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_subscriptions_company_id ON public.subscriptions USING btree (company_id);
-
-
---
--- Name: idx_subscriptions_status; Type: INDEX; Schema: public; Owner: -
---
-
 CREATE INDEX idx_subscriptions_status ON public.subscriptions USING btree (status);
 
-
---
--- Name: advance_salary_requests advance_salary_requests_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.advance_salary_requests
-    ADD CONSTRAINT advance_salary_requests_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: advance_salary_requests advance_salary_requests_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.advance_salary_requests
-    ADD CONSTRAINT advance_salary_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: advances advances_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.advances
-    ADD CONSTRAINT advances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: attendance attendance_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT attendance_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
-
-
---
--- Name: attendance attendance_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT attendance_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: attendance attendance_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT attendance_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: attendance_regularizations attendance_regularizations_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance_regularizations
-    ADD CONSTRAINT attendance_regularizations_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: attendance attendance_shift_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT attendance_shift_id_fkey FOREIGN KEY (shift_id) REFERENCES public.shifts(id) ON DELETE SET NULL;
-
-
---
--- Name: audit_logs audit_logs_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.audit_logs
-    ADD CONSTRAINT audit_logs_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: audit_logs audit_logs_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.audit_logs
-    ADD CONSTRAINT audit_logs_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE SET NULL;
-
-
---
--- Name: branches branches_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.branches
-    ADD CONSTRAINT branches_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: company_settings company_settings_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.company_settings
-    ADD CONSTRAINT company_settings_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: company_shifts company_shifts_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.company_shifts
-    ADD CONSTRAINT company_shifts_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: daily_tasks daily_tasks_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.daily_tasks
-    ADD CONSTRAINT daily_tasks_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: employees employees_assigned_shift_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_assigned_shift_id_fkey FOREIGN KEY (assigned_shift_id) REFERENCES public.company_shifts(id) ON DELETE SET NULL;
-
-
---
--- Name: employees employees_branch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
-
-
---
--- Name: employees employees_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: employees employees_manager_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.profiles(id);
-
-
---
--- Name: employees employees_shift_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT employees_shift_id_fkey FOREIGN KEY (shift_id) REFERENCES public.shifts(id) ON DELETE SET NULL;
-
-
---
--- Name: expense_claims expense_claims_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.expense_claims
-    ADD CONSTRAINT expense_claims_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: employees fk_employees_auth; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.employees
-    ADD CONSTRAINT fk_employees_auth FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: leave_balances leave_balances_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.leave_balances
-    ADD CONSTRAINT leave_balances_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: leave_balances leave_balances_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.leave_balances
-    ADD CONSTRAINT leave_balances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: leave_requests leave_requests_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.leave_requests
-    ADD CONSTRAINT leave_requests_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: leave_requests leave_requests_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.leave_requests
-    ADD CONSTRAINT leave_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: payroll payroll_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll
-    ADD CONSTRAINT payroll_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: payroll payroll_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll
-    ADD CONSTRAINT payroll_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: payroll_ledger payroll_ledger_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll_ledger
-    ADD CONSTRAINT payroll_ledger_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: payroll_processed payroll_processed_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll_processed
-    ADD CONSTRAINT payroll_processed_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: payroll_processed payroll_processed_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payroll_processed
-    ADD CONSTRAINT payroll_processed_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: payslips payslips_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payslips
-    ADD CONSTRAINT payslips_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: payslips payslips_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payslips
-    ADD CONSTRAINT payslips_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: payslips payslips_payroll_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payslips
-    ADD CONSTRAINT payslips_payroll_id_fkey FOREIGN KEY (payroll_id) REFERENCES public.payroll(id) ON DELETE CASCADE;
-
-
---
--- Name: profiles profiles_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.profiles
-    ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: reimbursements reimbursements_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reimbursements
-    ADD CONSTRAINT reimbursements_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: salary_advances salary_advances_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.salary_advances
-    ADD CONSTRAINT salary_advances_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: salary_advances salary_advances_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.salary_advances
-    ADD CONSTRAINT salary_advances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
-
-
---
--- Name: shifts shifts_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.shifts
-    ADD CONSTRAINT shifts_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: subscriptions subscriptions_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: subscriptions subscriptions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: system_audit_logs system_audit_logs_company_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.system_audit_logs
-    ADD CONSTRAINT system_audit_logs_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
-
-
---
--- Name: advance_salary_requests Admins can read company advance requests; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Admins can read company advance requests" ON public.advance_salary_requests FOR SELECT USING ((company_id = (( SELECT profiles.company_id
-   FROM public.profiles
-  WHERE (profiles.id = auth.uid())))::uuid));
-
-
---
--- Name: advance_salary_requests Admins can update advance requests; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Admins can update advance requests" ON public.advance_salary_requests FOR UPDATE USING ((company_id = (( SELECT profiles.company_id
-   FROM public.profiles
-  WHERE (profiles.id = auth.uid())))::uuid));
-
-
---
--- Name: employees Admins have absolute access based on auth claims; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Admins have absolute access based on auth claims" ON public.employees USING ((((auth.jwt() -> 'user_metadata'::text) ->> 'role'::text) = 'Admin'::text));
-
-
---
--- Name: attendance_regularizations Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
+ALTER TABLE ONLY public.advance_salary_requests ADD CONSTRAINT advance_salary_requests_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.advance_salary_requests ADD CONSTRAINT advance_salary_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.advances ADD CONSTRAINT advances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.attendance ADD CONSTRAINT attendance_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.attendance ADD CONSTRAINT attendance_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.attendance ADD CONSTRAINT attendance_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.attendance_regularizations ADD CONSTRAINT attendance_regularizations_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.attendance ADD CONSTRAINT attendance_shift_id_fkey FOREIGN KEY (shift_id) REFERENCES public.shifts(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.audit_logs ADD CONSTRAINT audit_logs_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.audit_logs ADD CONSTRAINT audit_logs_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.branches ADD CONSTRAINT branches_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.company_settings ADD CONSTRAINT company_settings_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.company_shifts ADD CONSTRAINT company_shifts_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.daily_tasks ADD CONSTRAINT daily_tasks_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_assigned_shift_id_fkey FOREIGN KEY (assigned_shift_id) REFERENCES public.company_shifts(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.profiles(id);
+ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_shift_id_fkey FOREIGN KEY (shift_id) REFERENCES public.shifts(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.expense_claims ADD CONSTRAINT expense_claims_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.employees ADD CONSTRAINT fk_employees_auth FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.leave_balances ADD CONSTRAINT leave_balances_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.leave_balances ADD CONSTRAINT leave_balances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.leave_requests ADD CONSTRAINT leave_requests_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.leave_requests ADD CONSTRAINT leave_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payroll ADD CONSTRAINT payroll_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payroll ADD CONSTRAINT payroll_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payroll_ledger ADD CONSTRAINT payroll_ledger_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payroll_processed ADD CONSTRAINT payroll_processed_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payroll_processed ADD CONSTRAINT payroll_processed_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payslips ADD CONSTRAINT payslips_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payslips ADD CONSTRAINT payslips_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payslips ADD CONSTRAINT payslips_payroll_id_fkey FOREIGN KEY (payroll_id) REFERENCES public.payroll(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.reimbursements ADD CONSTRAINT reimbursements_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.salary_advances ADD CONSTRAINT salary_advances_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.salary_advances ADD CONSTRAINT salary_advances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.shifts ADD CONSTRAINT shifts_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.subscriptions ADD CONSTRAINT subscriptions_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.subscriptions ADD CONSTRAINT subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.system_audit_logs ADD CONSTRAINT system_audit_logs_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE CASCADE;
+
+CREATE POLICY "Admins can read company advance requests" ON public.advance_salary_requests FOR SELECT USING ((company_id = (( SELECT profiles.company_id FROM public.profiles WHERE (profiles.id = auth.uid())))::uuid));
+CREATE POLICY "Admins can update advance requests" ON public.advance_salary_requests FOR UPDATE USING ((company_id = (( SELECT profiles.company_id FROM public.profiles WHERE (profiles.id = auth.uid())))::uuid));
 CREATE POLICY "Allow all access to authenticated users" ON public.attendance_regularizations TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: company_settings Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow all access to authenticated users" ON public.company_settings TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: company_shifts Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow all access to authenticated users" ON public.company_shifts TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: daily_tasks Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow all access to authenticated users" ON public.daily_tasks TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: expense_claims Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow all access to authenticated users" ON public.expense_claims TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: payroll_ledger Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow all access to authenticated users" ON public.payroll_ledger TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: system_audit_logs Allow all access to authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow all access to authenticated users" ON public.system_audit_logs TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: employees Allow authenticated inserts to employees; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated inserts to employees" ON public.employees FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
--- Name: employees Allow authenticated updates to employees; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated updates to employees" ON public.employees FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: advances Allow authenticated users access; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow authenticated users access" ON public.advances TO authenticated USING (true) WITH CHECK (true);
-
-
---
--- Name: attendance Allow individual employee read update attendance; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow individual employee read update attendance" ON public.attendance USING (true) WITH CHECK (true);
-
-
---
--- Name: leave_requests Allow individual employee read write leaves; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow individual employee read write leaves" ON public.leave_requests USING (true) WITH CHECK (true);
-
-
---
--- Name: companies Allow public to register a company; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Allow public to register a company" ON public.companies FOR INSERT WITH CHECK (true);
-
-
---
--- Name: companies Allow users to view their own company; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow users to view their own company" ON public.companies FOR SELECT USING (true);
-
-
---
--- Name: reimbursements Employees can insert claims; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Employees can insert claims" ON public.reimbursements FOR INSERT WITH CHECK ((auth.uid() = employee_id));
-
-
---
--- Name: advance_salary_requests Employees can insert own advance requests; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Employees can insert own advance requests" ON public.advance_salary_requests FOR INSERT WITH CHECK ((employee_id = ( SELECT employees.id
-   FROM public.employees
-  WHERE (employees.email = auth.email()))));
-
-
---
--- Name: advance_salary_requests Employees can read own advance requests; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Employees can read own advance requests" ON public.advance_salary_requests FOR SELECT USING ((employee_id = ( SELECT employees.id
-   FROM public.employees
-  WHERE (employees.email = auth.email()))));
-
-
---
--- Name: employees Employees can read their own profile; Type: POLICY; Schema: public; Owner: -
---
-
+CREATE POLICY "Employees can insert own advance requests" ON public.advance_salary_requests FOR INSERT WITH CHECK ((employee_id = ( SELECT employees.id FROM public.employees WHERE (employees.email = auth.email()))));
+CREATE POLICY "Employees can read own advance requests" ON public.advance_salary_requests FOR SELECT USING ((employee_id = ( SELECT employees.id FROM public.employees WHERE (employees.email = auth.email()))));
 CREATE POLICY "Employees can read their own profile" ON public.employees FOR SELECT USING ((auth.uid() = id));
-
-
---
--- Name: employees Employees can see their own base contract profile; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Employees can see their own base contract profile" ON public.employees FOR SELECT USING ((auth.uid() = auth_user_id));
-
-
---
--- Name: employees Employees can view their own profile row; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Employees can view their own profile row" ON public.employees FOR SELECT USING ((auth.uid() = id));
-
-
---
--- Name: companies Owners can fully manage their own companies; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Owners can fully manage their own companies" ON public.companies USING ((auth.uid() = owner_id));
-
-
---
--- Name: attendance Owners can manage attendance data for their company; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Owners can manage attendance data for their company" ON public.attendance USING ((company_id IN ( SELECT companies.id
-   FROM public.companies
-  WHERE (companies.owner_id = auth.uid()))));
-
-
---
--- Name: employees Owners can manage employees belonging to their active company; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Owners can manage employees belonging to their active company" ON public.employees USING ((company_id IN ( SELECT companies.id
-   FROM public.companies
-  WHERE (companies.owner_id = auth.uid()))));
-
-
---
--- Name: leave_requests Owners can manage leave requests data for their company; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Owners can manage leave requests data for their company" ON public.leave_requests USING ((company_id IN ( SELECT companies.id
-   FROM public.companies
-  WHERE (companies.owner_id = auth.uid()))));
-
-
---
--- Name: payroll Owners can manage payroll engine operations for their company; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Owners can manage payroll engine operations for their company" ON public.payroll USING ((company_id IN ( SELECT companies.id
-   FROM public.companies
-  WHERE (companies.owner_id = auth.uid()))));
-
-
---
--- Name: profiles Public profiles are viewable by authenticated users; Type: POLICY; Schema: public; Owner: -
---
-
+CREATE POLICY "Owners can manage attendance data for their company" ON public.attendance USING ((company_id IN ( SELECT companies.id FROM public.companies WHERE (companies.owner_id = auth.uid()))));
+CREATE POLICY "Owners can manage employees belonging to their active company" ON public.employees USING ((company_id IN ( SELECT companies.id FROM public.companies WHERE (companies.owner_id = auth.uid()))));
+CREATE POLICY "Owners can manage leave requests data for their company" ON public.leave_requests USING ((company_id IN ( SELECT companies.id FROM public.companies WHERE (companies.owner_id = auth.uid()))));
+CREATE POLICY "Owners can manage payroll engine operations for their company" ON public.payroll USING ((company_id IN ( SELECT companies.id FROM public.companies WHERE (companies.owner_id = auth.uid()))));
 CREATE POLICY "Public profiles are viewable by authenticated users" ON public.profiles FOR SELECT USING ((auth.role() = 'authenticated'::text));
-
-
---
--- Name: attendance Trustworthy global access attendance; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Trustworthy global access attendance" ON public.attendance USING (true) WITH CHECK (true);
-
-
---
--- Name: leave_requests Trustworthy global access leave; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Trustworthy global access leave" ON public.leave_requests USING (true) WITH CHECK (true);
-
-
---
--- Name: profiles Users can manage their own profile metadata; Type: POLICY; Schema: public; Owner: -
---
-
 CREATE POLICY "Users can manage their own profile metadata" ON public.profiles USING ((auth.uid() = id));
 
-
---
--- Name: advance_salary_requests; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.advance_salary_requests ENABLE ROW LEVEL SECURITY;
-
---
--- Name: advances; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.advances ENABLE ROW LEVEL SECURITY;
-
---
--- Name: attendance; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
-
---
--- Name: attendance_regularizations; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.attendance_regularizations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: audit_logs; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-
---
--- Name: branches; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
-
---
--- Name: companies; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
-
---
--- Name: company_settings; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
-
---
--- Name: company_shifts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.company_shifts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: daily_tasks; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.daily_tasks ENABLE ROW LEVEL SECURITY;
-
---
--- Name: demo_requests; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.demo_requests ENABLE ROW LEVEL SECURITY;
-
---
--- Name: employees; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
-
---
--- Name: expense_claims; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.expense_claims ENABLE ROW LEVEL SECURITY;
-
---
--- Name: leave_balances; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.leave_balances ENABLE ROW LEVEL SECURITY;
-
---
--- Name: leave_requests; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.leave_requests ENABLE ROW LEVEL SECURITY;
-
---
--- Name: payroll; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.payroll ENABLE ROW LEVEL SECURITY;
-
---
--- Name: payroll_ledger; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.payroll_ledger ENABLE ROW LEVEL SECURITY;
-
---
--- Name: payroll_processed; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.payroll_processed ENABLE ROW LEVEL SECURITY;
-
---
--- Name: payslips; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.payslips ENABLE ROW LEVEL SECURITY;
-
---
--- Name: profiles; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
---
--- Name: reimbursements; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.reimbursements ENABLE ROW LEVEL SECURITY;
-
---
--- Name: salary_advances; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.salary_advances ENABLE ROW LEVEL SECURITY;
-
---
--- Name: shifts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.shifts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: subscriptions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: system_audit_logs; Type: ROW SECURITY; Schema: public; Owner: -
---
-
 ALTER TABLE public.system_audit_logs ENABLE ROW LEVEL SECURITY;
-
---
--- PostgreSQL database dump complete
---
-
-\unrestrict R3aaFRh1aobesOm18vrIrZpXDiDyLyJlH9XUOGl8dJdTt2tZhC8SEi7GzuVQIBR
-
