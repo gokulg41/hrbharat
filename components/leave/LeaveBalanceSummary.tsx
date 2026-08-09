@@ -1,5 +1,5 @@
 import { CalendarDays, HeartPulse, Sparkles, Clock3 } from 'lucide-react';
-import { LeaveBalance, LeaveType } from '../lib/types';
+import { LeaveBalance, LeaveType } from '@/lib/types';
 
 const META: Record<LeaveType, { icon: React.ComponentType<{ className?: string }>; bar: string; iconBg: string; iconText: string }> = {
   'Casual Leave': { icon: CalendarDays, bar: 'bg-[var(--brand-primary)]', iconBg: 'bg-brand-subtle', iconText: 'text-[var(--brand-primary)]' },

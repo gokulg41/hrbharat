@@ -1,5 +1,5 @@
 import { Circle } from 'lucide-react';
-import { LeaveStatus } from '../lib/types';
+import { LeaveStatus } from '@/lib/types';
 
 const STYLES: Record<string, { text: string; bg: string; dot: string }> = {
   Pending: { text: 'text-[var(--status-warning)]', bg: 'bg-[var(--status-warning-bg)]', dot: 'fill-[var(--status-warning)]' },

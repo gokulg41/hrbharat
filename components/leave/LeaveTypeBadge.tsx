@@ -1,5 +1,5 @@
 import { Circle } from 'lucide-react';
-import { LeaveType } from '../lib/types';
+import { LeaveType } from '@/lib/types';
 
 const STYLES: Record<string, { text: string; dot: string }> = {
   'Casual Leave': { text: 'text-[var(--brand-primary)]', dot: 'fill-[var(--brand-primary)]' },
