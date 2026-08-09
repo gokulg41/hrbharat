@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ChevronDown,
   Users,
+  CalendarClock,
   Menu,
   X,
   Lock,
@@ -79,7 +80,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       label: 'People',
       items: [
         { name: 'Employees', href: '/admin', icon: UserPlus },
-        { name: 'Roster', href: '/admin/roster', icon: Users },
+        { name: 'Attendance & Shifts', href: '/admin/roster', icon: CalendarClock },
         // Leave and Advances are already covered by tabs inside Employees
         // (/admin) — surfaced here for direct access once split into their
         // own routes.
