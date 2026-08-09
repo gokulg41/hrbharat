@@ -89,7 +89,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       label: 'Payroll',
       items: [
         { name: 'Payroll', href: '/admin/payroll', icon: Banknote },
-        { name: 'Payslips', icon: Banknote, soon: true },
+        { name: 'Payslips', href: '/admin/payslips', icon: Banknote },
       ],
     },
     {
