@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { LeaveRequest } from '../lib/types';
-import { monthName } from '../lib/mockData';
+import { LeaveRequest } from '@/lib/types';
+import { monthName } from '@/lib/mockData';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Eye, MoreVertical } from 'lucide-react';
-import { LeaveRequest } from '../lib/types';
-import { formatDateLong, formatWeekday } from '../lib/mockData';
+import { LeaveRequest } from '@/lib/types';
+import { formatDateLong, formatWeekday } from '@/lib/mockData';
 import LeaveStatusBadge from './LeaveStatusBadge';
 import LeaveTypeBadge from './LeaveTypeBadge';
 
