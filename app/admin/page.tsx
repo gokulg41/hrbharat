@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { onboardEmployeeAction, updateCompanyGeofenceAction, createCompanyShiftAction, assignEmployeeShiftAction } from '@/lib/actions';
 import AdminTabsView from './tabs-view';
+import DashboardCharts from './dashboard-charts';
 
 import {
   UserPlus,
@@ -316,6 +317,7 @@ export default function PremiumAdminUnifiedDashboard() {
 
   const totalPayrollLiability = employees.reduce((sum, emp) => sum + (Number(emp.monthly_salary) || 0), 0);
   const deptCounts = employees.reduce((acc: any, emp) => { acc[emp.department || 'Operations'] = (acc[emp.department || 'Operations'] || 0) + 1; return acc; }, {});
+  const designationCounts = employees.reduce((acc: any, emp) => { acc[emp.designation || 'Staff'] = (acc[emp.designation || 'Staff'] || 0) + 1; return acc; }, {});
   const currentAttendanceRate = employees.length > 0 ? Math.round((todayAttendance.length / employees.length) * 100) : 0;
 
   if (loading) {
@@ -441,6 +443,14 @@ export default function PremiumAdminUnifiedDashboard() {
                 </div>
               ))}
             </div>
+
+            {/* Charts */}
+            <DashboardCharts
+              employees={employees}
+              todayAttendance={todayAttendance}
+              deptCounts={deptCounts}
+              designationCounts={designationCounts}
+            />
 
             {/* Main grid: onboarding form + tabs */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
