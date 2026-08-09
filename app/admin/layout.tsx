@@ -95,7 +95,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
     {
       label: 'Insights',
       items: [
-        { name: 'Reports', icon: Users, soon: true },
+        { name: 'Reports', href: '/admin/reports', icon: Users },
         { name: 'Analytics', icon: Users, soon: true },
       ],
     },
