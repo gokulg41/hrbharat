@@ -22,8 +22,7 @@ import LeaveBalanceSummary from '@components/leave/LeaveBalanceSummary';
 import LeaveCalendar from '@components/leave/LeaveCalendar';
 import QuickActions from '@components/leave/QuickActions';
 
-import { EmployeeRecord, LeaveRequest, LeaveStatus } from '@/lib/types';
-import { MOCK_EMPLOYEES, MOCK_LEAVE_REQUESTS } from '@/lib/mockData';
+import { EmployeeRecord, LeaveRequest, LeaveStatus } from '@/lib/types';;
 import { computeEmployeeBalances } from '@/lib/balances';
 
 const TAB_TO_STATUS: Record<Exclude<LeaveTabKey, 'all'>, LeaveStatus> = {
