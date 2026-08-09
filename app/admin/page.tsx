@@ -158,6 +158,7 @@ export default function PremiumAdminUnifiedDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState('Enterprise Workspace');
+  const [adminFirstName, setAdminFirstName] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -210,7 +211,8 @@ export default function PremiumAdminUnifiedDashboard() {
     async function loadAdminWorkspace() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
+      const { data: profile } = await supabase.from('profiles').select('company_id, full_name').eq('id', user.id).single();
+      if (profile?.full_name) setAdminFirstName(profile.full_name.split(' ')[0]);
       if (profile?.company_id) {
         setCompanyId(profile.company_id);
         const { data: comp } = await supabase.from('companies').select('name').eq('id', profile.company_id).single();
@@ -334,21 +336,18 @@ export default function PremiumAdminUnifiedDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--surface-canvas)] font-['Georgia',_serif] antialiased">
+    <div className="min-h-screen bg-[var(--surface-canvas)] antialiased">
 
       {/* ── Top bar ── */}
-      <header className="sticky top-0 z-40 bg-[var(--surface-card)]/90 backdrop-blur border-b border-[var(--border-subtle)] px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-ink-400" />
+      <header className="sticky top-0 z-40 bg-[var(--surface-card)]/90 backdrop-blur border-b border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-ink-900 font-sans leading-tight">
+              {adminFirstName ? `Welcome back, ${adminFirstName}` : 'Welcome back'}
+            </h1>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           </div>
-          <div>
-            <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 flex items-center gap-1.5">
-              {companyName}
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            </p>
-            <h1 className="text-sm font-semibold text-ink-900 leading-tight">Admin Workspace</h1>
-          </div>
+          <p className="text-xs text-ink-400 font-sans mt-0.5">{companyName} · Admin Workspace</p>
         </div>
 
         {/* Nav tabs */}
@@ -359,7 +358,7 @@ export default function PremiumAdminUnifiedDashboard() {
               onClick={() => setCurrentSection(item.id as any)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-sans font-medium cursor-pointer transition-all ${
                 currentSection === item.id
-                  ? 'bg-[var(--surface-card)] text-ink-900 shadow-sm border border-[var(--border-subtle)]'
+                  ? 'bg-brand text-white shadow-sm'
                   : 'text-ink-600 hover:text-ink-900'
               }`}
             >

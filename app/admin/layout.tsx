@@ -65,28 +65,28 @@ export default function AdminSidebarLayout({ children }: { children: React.React
         {/* Brand */}
         <div className="flex items-center gap-3 px-1">
           <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-bold text-ink-400 font-sans tracking-tight">HR</span>
+            <span className="text-[11px] font-bold text-white font-sans tracking-tight">HR</span>
           </div>
           <div>
-            <span className="text-sm font-semibold text-ink-900 font-sans block leading-tight">HRBharat</span>
-            <span className="text-[9px] font-semibold text-ink-400 uppercase tracking-widest block font-sans">Admin Console</span>
+            <span className="text-sm font-semibold text-white font-sans block leading-tight">HRBharat</span>
+            <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest block font-sans">Admin Console</span>
           </div>
         </div>
 
         {/* Workspace badge */}
-        <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-[var(--surface-card)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
-            <Building2 className="w-3.5 h-3.5 text-ink-600" />
+        <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-slate-300" />
           </div>
           <div className="truncate">
-            <span className="text-[9px] font-semibold text-ink-400 uppercase tracking-wider block font-sans">Workspace</span>
-            <span className="text-xs font-semibold text-ink-900 truncate block font-sans">{companyName}</span>
+            <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block font-sans">Workspace</span>
+            <span className="text-xs font-semibold text-white truncate block font-sans">{companyName}</span>
           </div>
         </div>
 
         {/* Nav links */}
         <nav className="space-y-0.5">
-          <span className="text-[9px] font-semibold uppercase text-ink-400 tracking-widest block px-2 mb-2 font-sans">
+          <span className="text-[9px] font-semibold uppercase text-slate-500 tracking-widest block px-2 mb-2 font-sans">
             Menu
           </span>
           {navigationLinks.map((link) => {
@@ -98,13 +98,13 @@ export default function AdminSidebarLayout({ children }: { children: React.React
                 <button
                   key={link.href}
                   onClick={() => setLockedNav(link.name)}
-                  className="group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors text-ink-400 hover:bg-[var(--surface-card-hover)] hover:text-ink-600 cursor-pointer"
+                  className="group w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors text-slate-500 hover:bg-slate-800 hover:text-slate-300 cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4 shrink-0 text-ink-400 group-hover:text-ink-400" />
+                    <Icon className="w-4 h-4 shrink-0 text-slate-500" />
                     <span>{link.name}</span>
                   </div>
-                  <Lock className="w-3 h-3 text-ink-400 group-hover:text-ink-400" />
+                  <Lock className="w-3 h-3 text-slate-500" />
                 </button>
               );
             }
@@ -115,15 +115,15 @@ export default function AdminSidebarLayout({ children }: { children: React.React
                 href={link.href}
                 className={`group flex items-center justify-between px-3 py-2 rounded-lg text-sm font-sans transition-colors ${
                   isActive
-                    ? 'bg-[var(--border-subtle)] text-ink-900 font-semibold'
-                    : 'text-ink-600 hover:bg-[var(--surface-card-hover)] hover:text-ink-900'
+                    ? 'bg-brand text-white font-semibold'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-ink-900' : 'text-ink-400 group-hover:text-ink-600'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} />
                   <span>{link.name}</span>
                 </div>
-                {isActive && <ChevronRight className="w-3 h-3 text-ink-400" />}
+                {isActive && <ChevronRight className="w-3 h-3 text-white" />}
               </Link>
             );
           })}
@@ -131,19 +131,19 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       </div>
 
       {/* Bottom user area */}
-      <div className="p-4 border-t border-[var(--border-subtle)] space-y-2">
+      <div className="p-4 border-t border-slate-800 space-y-2">
         <div className="flex items-center gap-2.5 px-2 py-1">
-          <div className="w-7 h-7 rounded-full bg-surface-card-hover flex items-center justify-center text-[11px] font-semibold text-ink-600 font-sans shrink-0">
+          <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-[11px] font-semibold text-slate-200 font-sans shrink-0">
             {initials}
           </div>
           <div className="truncate">
-            <span className="text-xs font-semibold text-ink-900 block truncate font-sans">{adminName}</span>
-            <span className="text-[9px] font-medium text-ink-400 uppercase tracking-wide block font-sans">Administrator</span>
+            <span className="text-xs font-semibold text-white block truncate font-sans">{adminName}</span>
+            <span className="text-[9px] font-medium text-slate-500 uppercase tracking-wide block font-sans">Administrator</span>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-sans text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-sans text-rose-400 hover:bg-slate-800 hover:text-rose-300 transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign out</span>
@@ -156,7 +156,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
     <div className="min-h-screen bg-[var(--surface-canvas)] flex antialiased">
 
       {/* ── Desktop sidebar ── */}
-      <aside className="w-60 bg-[var(--surface-card)] border-r border-[var(--border-subtle)] hidden md:flex flex-col justify-between fixed h-screen z-30">
+      <aside className="w-60 bg-slate-900 border-r border-slate-800 hidden md:flex flex-col justify-between fixed h-screen z-30">
         <SidebarContent />
       </aside>
 
@@ -170,13 +170,13 @@ export default function AdminSidebarLayout({ children }: { children: React.React
 
       {/* ── Mobile: slide-in drawer ── */}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-[var(--surface-card)] border-r border-[var(--border-subtle)] flex flex-col justify-between z-50 md:hidden
+        className={`fixed top-0 left-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between z-50 md:hidden
           transition-transform duration-300 ease-in-out
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <button
           onClick={() => setMobileOpen(false)}
-          className="absolute top-3 right-3 p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors"
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -184,18 +184,18 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       </aside>
 
       {/* ── Mobile: top bar ── */}
-      <div className="fixed top-0 left-0 right-0 h-12 bg-[var(--surface-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3 z-30 md:hidden">
+      <div className="fixed top-0 left-0 right-0 h-12 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-3 z-30 md:hidden">
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-1.5 rounded-lg text-ink-600 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors"
+          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-brand flex items-center justify-center shrink-0">
-            <span className="text-[9px] font-bold text-ink-400 font-sans">HR</span>
+            <span className="text-[9px] font-bold text-white font-sans">HR</span>
           </div>
-          <span className="text-sm font-semibold text-ink-900 font-sans">HRBharat</span>
+          <span className="text-sm font-semibold text-white font-sans">HRBharat</span>
         </div>
       </div>
 
