@@ -82,9 +82,7 @@ export default function AdminSidebarLayout({ children }: { children: React.React
         { name: 'Employees', href: '/admin', icon: UserPlus },
         { name: 'Attendance & Shifts', href: '/admin/roster', icon: CalendarClock },
         { name: 'Leave', href: '/admin/leave', icon: Users },
-        // Advances is already covered by a tab inside Employees (/admin) —
-        // surfaced here for direct access once split into its own route.
-        { name: 'Advances', icon: Banknote, soon: true },
+        { name: 'Advances', href: '/admin/advances', icon: Banknote },
       ],
     },
     {
