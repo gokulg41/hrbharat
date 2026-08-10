@@ -45,7 +45,7 @@ export default function EmployeeTable({
             <Th>Designation</Th>
             <Th>Status</Th>
             <Th>Join Date</Th>
-            <Th align="right">Salary</Th>
+            <Th>Salary</Th>
             <Th className="w-16" />
           </tr>
         </thead>
@@ -91,7 +91,7 @@ export default function EmployeeTable({
                   <EmployeeStatusBadge status={emp.status} />
                 </Td>
                 <Td className="text-ink-600 whitespace-nowrap">{formatJoinDate(emp.join_date)}</Td>
-                <Td align="right" className="text-ink-900 font-medium font-mono whitespace-nowrap">
+                <Td className="text-ink-900 font-medium font-mono whitespace-nowrap">
                   {formatINR(emp.salary)}
                 </Td>
                 <Td>

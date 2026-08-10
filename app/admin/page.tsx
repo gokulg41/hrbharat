@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, UserCheck, Palmtree, Building2, UserPlus, Plus, ChevronDown } from 'lucide-react';
+import { Users, UserCheck, Palmtree, Share2, CalendarPlus, Plus, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useEmployees } from '@/lib/employees/useEmployees';
 import { computeQuickFilters, applyQuickFilter, type QuickFilterKey } from '@/lib/employees/quickFilters';
@@ -237,10 +237,11 @@ export default function EmployeesPage() {
             label="On Leave"
             value={metrics.onLeave}
             supportingText="Today"
+            supportingTone="warning"
             loading={loading}
           />
           <EmployeeMetricCard
-            icon={Building2}
+            icon={Share2}
             iconColor="#6D28D9"
             iconBg="#F5F3FF"
             label="Departments"
@@ -249,7 +250,7 @@ export default function EmployeesPage() {
             loading={loading}
           />
           <EmployeeMetricCard
-            icon={UserPlus}
+            icon={CalendarPlus}
             iconColor="#1D4ED8"
             iconBg="#EFF6FF"
             label="New Hires (This Month)"
@@ -276,9 +277,14 @@ export default function EmployeesPage() {
               employmentTypes={employmentTypeOptions}
               employmentType={employmentType}
               onEmploymentTypeChange={setEmploymentType}
+              status={statusTab}
+              onStatusChange={setStatusTab}
               onExport={handleExport}
               onMoreFilters={() => {
                 /* TODO: hook up an advanced filters panel if/when you need one */
+              }}
+              onFilters={() => {
+                /* TODO: hook up a saved-filters panel if/when you need one */
               }}
             />
 

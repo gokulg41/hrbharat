@@ -8,7 +8,7 @@ interface EmployeeMetricCardProps {
   label: string;
   value: string | number;
   supportingText?: string;
-  supportingTone?: 'positive' | 'neutral';
+  supportingTone?: 'positive' | 'neutral' | 'warning';
   loading?: boolean;
 }
 
@@ -41,7 +41,11 @@ export default function EmployeeMetricCard({
         {supportingText && !loading && (
           <p
             className={`text-xs font-sans mt-1 truncate ${
-              supportingTone === 'positive' ? 'text-status-success' : 'text-ink-400'
+              supportingTone === 'positive'
+                ? 'text-status-success'
+                : supportingTone === 'warning'
+                ? 'text-status-warning'
+                : 'text-ink-400'
             }`}
           >
             {supportingText}

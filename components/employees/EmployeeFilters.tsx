@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, Download, SlidersHorizontal } from 'lucide-react';
+import { Search, Download, SlidersHorizontal, Filter } from 'lucide-react';
+import type { StatusFilter } from '@/lib/employees/types';
 
 interface EmployeeFiltersProps {
   searchValue: string;
@@ -10,9 +11,19 @@ interface EmployeeFiltersProps {
   employmentTypes: string[];
   employmentType: string;
   onEmploymentTypeChange: (value: string) => void;
+  status: StatusFilter;
+  onStatusChange: (value: StatusFilter) => void;
   onExport: () => void;
   onMoreFilters: () => void;
+  onFilters: () => void;
 }
+
+const STATUS_OPTIONS: { label: string; value: StatusFilter }[] = [
+  { label: 'All Status', value: 'all' },
+  { label: 'Active', value: 'active' },
+  { label: 'On Leave', value: 'on_leave' },
+  { label: 'Inactive', value: 'inactive' },
+];
 
 export default function EmployeeFilters({
   searchValue,
@@ -23,8 +34,11 @@ export default function EmployeeFilters({
   employmentTypes,
   employmentType,
   onEmploymentTypeChange,
+  status,
+  onStatusChange,
   onExport,
   onMoreFilters,
+  onFilters,
 }: EmployeeFiltersProps) {
   return (
     <div className="bg-surface-card border border-border-subtle rounded-xl p-4 space-y-3">
@@ -40,7 +54,7 @@ export default function EmployeeFilters({
         />
       </div>
 
-      {/* Filter row */}
+      {/* Dropdown row */}
       <div className="flex flex-wrap items-end gap-3">
         <FilterSelect
           label="Department"
@@ -56,6 +70,15 @@ export default function EmployeeFilters({
             options={['All Types', ...employmentTypes]}
           />
         )}
+        <FilterSelect
+          label="Status"
+          value={STATUS_OPTIONS.find((s) => s.value === status)?.label ?? 'All Status'}
+          onChange={(label) => {
+            const match = STATUS_OPTIONS.find((s) => s.label === label);
+            onStatusChange(match ? match.value : 'all');
+          }}
+          options={STATUS_OPTIONS.map((s) => s.label)}
+        />
 
         <button
           onClick={onMoreFilters}
@@ -64,15 +87,23 @@ export default function EmployeeFilters({
           <SlidersHorizontal className="w-3.5 h-3.5" />
           More Filters
         </button>
+      </div>
 
-        <div className="flex-1" />
-
+      {/* Right-aligned action row */}
+      <div className="flex items-center justify-end gap-2.5">
         <button
           onClick={onExport}
-          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-border-subtle text-sm font-medium font-sans text-ink-600 hover:bg-surface-card-hover hover:border-border-hover transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border-subtle text-sm font-medium font-sans text-ink-600 hover:bg-surface-card-hover hover:border-border-hover transition-colors cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
           Export
+        </button>
+        <button
+          onClick={onFilters}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border-subtle text-sm font-medium font-sans text-ink-600 hover:bg-surface-card-hover hover:border-border-hover transition-colors cursor-pointer"
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filters
         </button>
       </div>
     </div>
