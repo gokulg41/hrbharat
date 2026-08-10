@@ -13,6 +13,7 @@ import {
   ClipboardList,
   MapPin,
   Users,
+  Landmark,
   Calendar,
   Crown,
   ChevronRight,
@@ -27,6 +28,18 @@ import {
   Zap,
   Info,
   FileBadge2,
+  Webhook,
+  MessageCircle,
+  FileSpreadsheet,
+  Fingerprint,
+  Hash,
+  Copy,
+  Lock,
+  LogOut,
+  KeyRound,
+  Smartphone,
+  Activity,
+  Trash2,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
@@ -105,6 +118,21 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 
 const inputCls = "w-full text-sm font-sans bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand text-ink-900";
 
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${checked ? 'bg-brand' : 'bg-[var(--border-hover)]'}`}
+    >
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+    </button>
+  );
+}
+
 function LockedFeatureNote({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -144,11 +172,45 @@ export default function CompanyPage() {
   const [profileForm, setProfileForm] = useState<any>(null);
   const [addressForm, setAddressForm] = useState<any>(null);
   const [statutoryForm, setStatutoryForm] = useState<any>(null);
+  const [businessForm, setBusinessForm] = useState<any>(null);
+  const [payrollSettings, setPayrollSettings] = useState<any>(null);
+  const [payrollForm, setPayrollForm] = useState<any>(null);
+  const [leaveSettings, setLeaveSettings] = useState<any>(null);
+  const [leaveSettingsForm, setLeaveSettingsForm] = useState<any>(null);
+  const [leaveTypeForms, setLeaveTypeForms] = useState<Record<string, any>>({});
+  const [savingLeaveSettings, setSavingLeaveSettings] = useState(false);
+  const [savingLeaveType, setSavingLeaveType] = useState<string | null>(null);
+  const [notificationSettings, setNotificationSettings] = useState<any>(null);
+  const [notificationForm, setNotificationForm] = useState<any>(null);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [webhookSettings, setWebhookSettings] = useState<any>(null);
+  const [webhookForm, setWebhookForm] = useState<any>(null);
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [secretCopied, setSecretCopied] = useState(false);
+
+  // Security tab — real Supabase Auth state, not app-schema data
+  const [adminEmail, setAdminEmail] = useState('');
+  const [mustResetPassword, setMustResetPassword] = useState(false);
+  const [accountStatus, setAccountStatus] = useState('Active');
+  const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [mfaFactors, setMfaFactors] = useState<any[]>([]);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollData, setEnrollData] = useState<{ factorId: string; qrSvg: string; secret: string } | null>(null);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [signingOutEverywhere, setSigningOutEverywhere] = useState(false);
+  const [securityLog, setSecurityLog] = useState<any[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [savingStatutory, setSavingStatutory] = useState(false);
+  const [savingBusiness, setSavingBusiness] = useState(false);
+  const [savingPayroll, setSavingPayroll] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [editingStatutory, setEditingStatutory] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -166,12 +228,17 @@ export default function CompanyPage() {
       const cid = profile.company_id;
       setCompanyId(cid);
 
-      const [companyRes, empRes, branchRes, subRes, docRes] = await Promise.all([
+      const [companyRes, empRes, branchRes, subRes, docRes, payrollRes, leaveSettingsRes, leaveTypesRes, notifRes, webhookRes] = await Promise.all([
         supabase.from('companies').select('*').eq('id', cid).single(),
         supabase.from('employees').select('id, department').eq('company_id', cid),
         supabase.from('branches').select('id').eq('company_id', cid),
         supabase.from('subscriptions').select('plan_id, status, current_period_end').eq('company_id', cid).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('company_documents').select('*').eq('company_id', cid).order('created_at', { ascending: false }),
+        supabase.from('payroll_settings').select('*').eq('company_id', cid).maybeSingle(),
+        supabase.from('leave_settings').select('*').eq('company_id', cid).maybeSingle(),
+        supabase.from('leave_type_policies').select('*').eq('company_id', cid),
+        supabase.from('notification_settings').select('*').eq('company_id', cid).maybeSingle(),
+        supabase.from('webhook_integrations').select('*').eq('company_id', cid).maybeSingle(),
       ]);
 
       const firstErr = [companyRes, empRes, branchRes, docRes].find((r) => r.error)?.error;
@@ -193,6 +260,15 @@ export default function CompanyPage() {
           gst_number: companyRes.data.gst_number || '', esi_number: companyRes.data.esi_number || '',
           pf_establishment_code: companyRes.data.pf_establishment_code || '', professional_tax_number: companyRes.data.professional_tax_number || '',
         });
+        setBusinessForm({
+          business_type: companyRes.data.business_type || '',
+          working_days: companyRes.data.working_days ?? 26,
+          default_check_in: companyRes.data.default_check_in ? companyRes.data.default_check_in.slice(0, 5) : '09:30',
+          default_check_out: companyRes.data.default_check_out ? companyRes.data.default_check_out.slice(0, 5) : '18:30',
+          office_latitude: companyRes.data.office_latitude ?? '',
+          office_longitude: companyRes.data.office_longitude ?? '',
+          allowed_radius_meters: companyRes.data.allowed_radius_meters ?? 100,
+        });
       }
       if (empRes.data) {
         setEmployeeCount(empRes.data.length);
@@ -201,6 +277,69 @@ export default function CompanyPage() {
       if (branchRes.data) setLocationCount(branchRes.data.length);
       if (subRes.data) setSubscription(subRes.data);
       if (docRes.data) setDocuments(docRes.data);
+
+      const DEFAULT_PAYROLL = {
+        pay_cycle: 'Monthly', pay_day: 1,
+        pf_enabled: true, pf_employee_rate: 12, pf_employer_rate: 12, pf_wage_ceiling: 15000,
+        esi_enabled: true, esi_employee_rate: 0.75, esi_employer_rate: 3.25, esi_wage_ceiling: 21000,
+        professional_tax_enabled: true, professional_tax_amount: 200,
+        overtime_enabled: false, overtime_rate_multiplier: 1.5,
+        rounding_rule: 'nearest_rupee',
+      };
+      if (payrollRes.data) {
+        setPayrollSettings(payrollRes.data);
+        setPayrollForm({ ...DEFAULT_PAYROLL, ...payrollRes.data });
+      } else {
+        setPayrollSettings(null);
+        setPayrollForm(DEFAULT_PAYROLL);
+      }
+
+      const DEFAULT_LEAVE_SETTINGS = { leave_year_start_month: 1, min_notice_days: 1, max_consecutive_days: 15, allow_negative_balance: false };
+      if (leaveSettingsRes.data) {
+        setLeaveSettings(leaveSettingsRes.data);
+        setLeaveSettingsForm({ ...DEFAULT_LEAVE_SETTINGS, ...leaveSettingsRes.data });
+      } else {
+        setLeaveSettings(null);
+        setLeaveSettingsForm(DEFAULT_LEAVE_SETTINGS);
+      }
+
+      // Defaults mirror employees.casual_leave_balance / sick_leave_balance
+      // (12 / 12) — the existing per-employee defaults already in the schema.
+      // Unpaid Leave has no allocation concept, so annual_allocation stays null.
+      const DEFAULT_LEAVE_TYPES: Record<string, any> = {
+        'Casual Leave': { leave_type: 'Casual Leave', annual_allocation: 12, carry_forward_enabled: false, carry_forward_max: 0, accrual_method: 'annual' },
+        'Sick Leave': { leave_type: 'Sick Leave', annual_allocation: 12, carry_forward_enabled: false, carry_forward_max: 0, accrual_method: 'annual' },
+        'Unpaid Leave': { leave_type: 'Unpaid Leave', annual_allocation: null, carry_forward_enabled: false, carry_forward_max: 0, accrual_method: 'annual' },
+      };
+      const merged: Record<string, any> = { ...DEFAULT_LEAVE_TYPES };
+      if (leaveTypesRes.data) for (const row of leaveTypesRes.data) merged[row.leave_type] = { ...DEFAULT_LEAVE_TYPES[row.leave_type], ...row };
+      setLeaveTypeForms(merged);
+
+      const DEFAULT_NOTIFICATIONS = {
+        notify_leave_requests: true, notify_advance_requests: true, notify_new_employee: true, notify_payroll_processed: true,
+        notify_attendance_anomalies: false, notify_low_leave_balance: false, weekly_summary_email: false,
+        email_channel_enabled: true, notification_email: companyRes.data?.email || '',
+      };
+      if (notifRes.data) {
+        setNotificationSettings(notifRes.data);
+        setNotificationForm({ ...DEFAULT_NOTIFICATIONS, ...notifRes.data });
+      } else {
+        setNotificationSettings(null);
+        setNotificationForm(DEFAULT_NOTIFICATIONS);
+      }
+
+      const DEFAULT_WEBHOOK = {
+        enabled: false, endpoint_url: '', signing_secret: '',
+        send_on_leave_request: true, send_on_advance_request: true, send_on_new_employee: true, send_on_payroll_processed: true,
+      };
+      if (webhookRes.data) {
+        setWebhookSettings(webhookRes.data);
+        setWebhookForm({ ...DEFAULT_WEBHOOK, ...webhookRes.data });
+      } else {
+        setWebhookSettings(null);
+        setWebhookForm(DEFAULT_WEBHOOK);
+      }
+
       setLoading(false);
     }
     load();
@@ -264,6 +403,180 @@ export default function CompanyPage() {
     setCompany(data);
     setEditingStatutory(false);
     setToast({ type: 'success', text: 'Statutory details updated.' });
+  }
+
+  function validateBusiness(f: any) {
+    const errs: Record<string, string> = {};
+    const wd = Number(f.working_days);
+    if (!wd || wd < 1 || wd > 31) errs.working_days = 'Enter a value between 1 and 31.';
+    if (f.default_check_in && f.default_check_out && f.default_check_in >= f.default_check_out) errs.default_check_out = 'Check-out must be after check-in.';
+    if (f.office_latitude !== '' && (Number(f.office_latitude) < -90 || Number(f.office_latitude) > 90)) errs.office_latitude = 'Latitude must be between -90 and 90.';
+    if (f.office_longitude !== '' && (Number(f.office_longitude) < -180 || Number(f.office_longitude) > 180)) errs.office_longitude = 'Longitude must be between -180 and 180.';
+    const radius = Number(f.allowed_radius_meters);
+    if (!radius || radius < 10 || radius > 5000) errs.allowed_radius_meters = 'Enter a value between 10 and 5000 metres.';
+    return errs;
+  }
+
+  async function saveBusiness() {
+    const errs = validateBusiness(businessForm);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingBusiness(true);
+    const { data, error } = await supabase.from('companies').update({
+      business_type: businessForm.business_type || null,
+      working_days: Number(businessForm.working_days),
+      default_check_in: businessForm.default_check_in || null,
+      default_check_out: businessForm.default_check_out || null,
+      office_latitude: businessForm.office_latitude === '' ? null : Number(businessForm.office_latitude),
+      office_longitude: businessForm.office_longitude === '' ? null : Number(businessForm.office_longitude),
+      allowed_radius_meters: Number(businessForm.allowed_radius_meters),
+    }).eq('id', companyId).select().single();
+    setSavingBusiness(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setCompany(data);
+    setToast({ type: 'success', text: 'Business details saved. This updates check-in geofencing and payroll working days for all employees.' });
+  }
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) { setToast({ type: 'error', text: 'Geolocation is not available in this browser.' }); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setBusinessForm((f: any) => ({ ...f, office_latitude: pos.coords.latitude.toFixed(7), office_longitude: pos.coords.longitude.toFixed(7) }));
+        setLocating(false);
+      },
+      () => { setLocating(false); setToast({ type: 'error', text: 'Could not get your current location.' }); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  function validatePayroll(f: any) {
+    const errs: Record<string, string> = {};
+    if (!f.pay_day || f.pay_day < 1 || f.pay_day > 28) errs.pay_day = 'Enter a day between 1 and 28.';
+    if (f.pf_enabled) {
+      if (f.pf_employee_rate < 0 || f.pf_employee_rate > 100) errs.pf_employee_rate = 'Enter a percentage between 0 and 100.';
+      if (f.pf_employer_rate < 0 || f.pf_employer_rate > 100) errs.pf_employer_rate = 'Enter a percentage between 0 and 100.';
+      if (f.pf_wage_ceiling < 0) errs.pf_wage_ceiling = 'Enter a positive amount.';
+    }
+    if (f.esi_enabled) {
+      if (f.esi_employee_rate < 0 || f.esi_employee_rate > 100) errs.esi_employee_rate = 'Enter a percentage between 0 and 100.';
+      if (f.esi_employer_rate < 0 || f.esi_employer_rate > 100) errs.esi_employer_rate = 'Enter a percentage between 0 and 100.';
+      if (f.esi_wage_ceiling < 0) errs.esi_wage_ceiling = 'Enter a positive amount.';
+    }
+    if (f.professional_tax_enabled && f.professional_tax_amount < 0) errs.professional_tax_amount = 'Enter a positive amount.';
+    if (f.overtime_enabled && f.overtime_rate_multiplier < 1) errs.overtime_rate_multiplier = 'Multiplier must be at least 1x.';
+    return errs;
+  }
+
+  async function savePayroll() {
+    const f = {
+      ...payrollForm,
+      pay_day: Number(payrollForm.pay_day),
+      pf_employee_rate: Number(payrollForm.pf_employee_rate), pf_employer_rate: Number(payrollForm.pf_employer_rate), pf_wage_ceiling: Number(payrollForm.pf_wage_ceiling),
+      esi_employee_rate: Number(payrollForm.esi_employee_rate), esi_employer_rate: Number(payrollForm.esi_employer_rate), esi_wage_ceiling: Number(payrollForm.esi_wage_ceiling),
+      professional_tax_amount: Number(payrollForm.professional_tax_amount),
+      overtime_rate_multiplier: Number(payrollForm.overtime_rate_multiplier),
+    };
+    const errs = validatePayroll(f);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingPayroll(true);
+    const { data, error } = await supabase.from('payroll_settings').upsert({ ...f, company_id: companyId }, { onConflict: 'company_id' }).select().single();
+    setSavingPayroll(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setPayrollSettings(data);
+    setPayrollForm(data);
+    setToast({ type: 'success', text: 'Payroll settings saved.' });
+  }
+
+  async function saveLeaveSettings() {
+    const f = leaveSettingsForm;
+    const errs: Record<string, string> = {};
+    if (f.min_notice_days < 0) errs.min_notice_days = 'Enter a positive number of days.';
+    if (f.max_consecutive_days !== null && f.max_consecutive_days !== '' && Number(f.max_consecutive_days) < 1) errs.max_consecutive_days = 'Enter at least 1 day, or leave blank for no cap.';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingLeaveSettings(true);
+    const payload = {
+      company_id: companyId,
+      leave_year_start_month: Number(f.leave_year_start_month),
+      min_notice_days: Number(f.min_notice_days),
+      max_consecutive_days: f.max_consecutive_days === '' || f.max_consecutive_days === null ? null : Number(f.max_consecutive_days),
+      allow_negative_balance: f.allow_negative_balance,
+    };
+    const { data, error } = await supabase.from('leave_settings').upsert(payload, { onConflict: 'company_id' }).select().single();
+    setSavingLeaveSettings(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setLeaveSettings(data);
+    setLeaveSettingsForm(data);
+    setToast({ type: 'success', text: 'Leave rules saved.' });
+  }
+
+  async function saveLeaveTypePolicy(leaveType: string) {
+    const f = leaveTypeForms[leaveType];
+    const errs: Record<string, string> = {};
+    if (f.annual_allocation !== null && f.annual_allocation !== '' && Number(f.annual_allocation) < 0) errs[`${leaveType}_allocation`] = 'Enter a positive number of days.';
+    if (f.carry_forward_enabled && Number(f.carry_forward_max) < 0) errs[`${leaveType}_carry`] = 'Enter a positive number of days.';
+    setErrors((prev) => ({ ...prev, ...errs }));
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingLeaveType(leaveType);
+    const payload = {
+      company_id: companyId,
+      leave_type: leaveType,
+      annual_allocation: f.annual_allocation === '' || f.annual_allocation === null ? null : Number(f.annual_allocation),
+      carry_forward_enabled: f.carry_forward_enabled,
+      carry_forward_max: Number(f.carry_forward_max) || 0,
+      accrual_method: f.accrual_method,
+    };
+    const { data, error } = await supabase.from('leave_type_policies').upsert(payload, { onConflict: 'company_id,leave_type' }).select().single();
+    setSavingLeaveType(null);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setLeaveTypeForms((prev) => ({ ...prev, [leaveType]: data }));
+    setToast({ type: 'success', text: `${leaveType} policy saved.` });
+  }
+
+  async function saveNotifications() {
+    const f = notificationForm;
+    const errs: Record<string, string> = {};
+    if (f.email_channel_enabled && !validateEmail(f.notification_email)) errs.notification_email = 'Enter a valid email address.';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingNotifications(true);
+    const { data, error } = await supabase.from('notification_settings').upsert({ ...f, company_id: companyId }, { onConflict: 'company_id' }).select().single();
+    setSavingNotifications(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setNotificationSettings(data);
+    setNotificationForm(data);
+    setToast({ type: 'success', text: 'Notification preferences saved.' });
+  }
+
+  async function saveWebhook() {
+    const f = webhookForm;
+    const errs: Record<string, string> = {};
+    if (f.enabled && !validateUrl(f.endpoint_url)) errs.endpoint_url = 'Enter a valid URL (starting with http:// or https://).';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingWebhook(true);
+    const payload: any = {
+      company_id: companyId, enabled: f.enabled, endpoint_url: f.endpoint_url || null,
+      send_on_leave_request: f.send_on_leave_request, send_on_advance_request: f.send_on_advance_request,
+      send_on_new_employee: f.send_on_new_employee, send_on_payroll_processed: f.send_on_payroll_processed,
+    };
+    // Only send signing_secret if we already have one — otherwise let the column default generate it.
+    if (f.signing_secret) payload.signing_secret = f.signing_secret;
+    const { data, error } = await supabase.from('webhook_integrations').upsert(payload, { onConflict: 'company_id' }).select().single();
+    setSavingWebhook(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setWebhookSettings(data);
+    setWebhookForm(data);
+    setToast({ type: 'success', text: 'Webhook settings saved.' });
+  }
+
+  function copySigningSecret() {
+    if (!webhookForm?.signing_secret) return;
+    navigator.clipboard.writeText(webhookForm.signing_secret);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 2000);
   }
 
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -364,7 +677,7 @@ export default function CompanyPage() {
             return (
               <button
                 key={t.key}
-                onClick={() => { if (t.key === 'profile') { setActiveTab('profile'); } else { setLockedNote(t.label); } }}
+                onClick={() => { if (t.key === 'profile' || t.key === 'business' || t.key === 'payroll' || t.key === 'leave' || t.key === 'notifications' || t.key === 'integrations') { setActiveTab(t.key); } else { setLockedNote(t.label); } }}
                 className={`flex items-center gap-1.5 whitespace-nowrap pb-3 text-sm font-sans font-medium border-b-2 transition-colors ${isActive ? 'border-brand text-brand font-semibold' : 'border-transparent text-ink-400 hover:text-ink-600'}`}
               >
                 <Icon className="w-3.5 h-3.5" /> {t.label}
@@ -387,6 +700,8 @@ export default function CompanyPage() {
       )}
 
       <div className="px-6 lg:px-8 pt-6 pb-8 space-y-6">
+      {activeTab === 'profile' && (
+        <>
         {/* Company Profile + Overview */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
           <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
@@ -623,6 +938,435 @@ export default function CompanyPage() {
             </div>
           </div>
         </div>
+        </>
+      )}
+
+      {activeTab === 'business' && (
+        <>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-sans leading-relaxed">
+            These settings are live and already power your app: <span className="font-semibold">Working Days</span> feeds payroll's per-day salary calculation, and
+            <span className="font-semibold"> Office Location &amp; Radius</span> is the geofence employees must check in within on Attendance &amp; Shifts. Changes apply to all employees immediately.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Business Registration */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><Building2 className="w-4 h-4 text-brand" /> Business Registration</p>
+            <div className="space-y-4">
+              <Field label="Business Type">
+                <input list="business-type-options" className={inputCls} value={businessForm?.business_type || ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, business_type: e.target.value }))} placeholder="e.g. Private Limited" />
+                <datalist id="business-type-options">
+                  {['Sole Proprietorship', 'Partnership', 'LLP', 'Private Limited', 'Public Limited', 'One Person Company (OPC)', 'SaaS', 'Other'].map((o) => <option key={o} value={o} />)}
+                </datalist>
+              </Field>
+              <Field label="Working Days per Month" error={errors.working_days}>
+                <input type="number" min={1} max={31} className={inputCls} value={businessForm?.working_days ?? ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, working_days: e.target.value }))} />
+                <p className="text-[10px] text-ink-400 font-sans mt-1">Used to compute each employee&apos;s per-day salary in Payroll.</p>
+              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Default Check-in">
+                  <input type="time" className={inputCls} value={businessForm?.default_check_in || ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, default_check_in: e.target.value }))} />
+                </Field>
+                <Field label="Default Check-out" error={errors.default_check_out}>
+                  <input type="time" className={inputCls} value={businessForm?.default_check_out || ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, default_check_out: e.target.value }))} />
+                </Field>
+              </div>
+            </div>
+          </div>
+
+          {/* Office Location & Geofencing */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><MapPin className="w-4 h-4 text-brand" /> Office Location &amp; Geofencing</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Latitude" error={errors.office_latitude}>
+                  <input type="number" step="0.0000001" className={inputCls} value={businessForm?.office_latitude ?? ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, office_latitude: e.target.value }))} placeholder="28.6139000" />
+                </Field>
+                <Field label="Longitude" error={errors.office_longitude}>
+                  <input type="number" step="0.0000001" className={inputCls} value={businessForm?.office_longitude ?? ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, office_longitude: e.target.value }))} placeholder="77.2090000" />
+                </Field>
+              </div>
+              <button onClick={useCurrentLocation} disabled={locating} className="flex items-center gap-1.5 text-xs font-sans font-semibold px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-ink-600 hover:bg-[var(--surface-card-hover)] disabled:opacity-50">
+                {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />} {locating ? 'Locating…' : 'Use My Current Location'}
+              </button>
+              <Field label="Allowed Check-in Radius (metres)" error={errors.allowed_radius_meters}>
+                <input type="number" min={10} max={5000} className={inputCls} value={businessForm?.allowed_radius_meters ?? ''} onChange={(e) => setBusinessForm((f: any) => ({ ...f, allowed_radius_meters: e.target.value }))} />
+                <p className="text-[10px] text-ink-400 font-sans mt-1">Employees must be within this distance of the office to check in.</p>
+              </Field>
+              {businessForm?.office_latitude && businessForm?.office_longitude && (
+                <a href={`https://www.google.com/maps?q=${businessForm.office_latitude},${businessForm.office_longitude}`} target="_blank" rel="noreferrer" className="text-xs font-sans font-semibold text-brand hover:underline inline-block">
+                  View on Google Maps →
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button onClick={saveBusiness} disabled={savingBusiness}
+          className="flex items-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+          {savingBusiness ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingBusiness ? 'Saving…' : 'Save Business Details'}
+        </button>
+        </>
+      )}
+
+      {activeTab === 'payroll' && payrollForm && (
+        <>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-sans leading-relaxed">
+            {payrollSettings ? 'These values are read from ' : 'This is a new settings table — '}<span className="font-semibold">payroll_settings</span>, which is new and stores the rates shown below.
+            {' '}Your payroll processing logic (wherever gross/net salary is currently computed) will need to be updated to read from this table for these numbers to actually apply — saving here does not yet change past or future payroll runs on its own.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><Calendar className="w-4 h-4 text-brand" /> Pay Cycle</p>
+            <div className="space-y-4">
+              <Field label="Pay Cycle">
+                <select className={inputCls} value={payrollForm.pay_cycle} onChange={(e) => setPayrollForm((f: any) => ({ ...f, pay_cycle: e.target.value }))}>
+                  {['Monthly', 'Bi-Weekly', 'Weekly'].map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </Field>
+              <Field label="Salary Day of Month" error={errors.pay_day}>
+                <input type="number" min={1} max={28} className={inputCls} value={payrollForm.pay_day} onChange={(e) => setPayrollForm((f: any) => ({ ...f, pay_day: e.target.value }))} />
+                <p className="text-[10px] text-ink-400 font-sans mt-1">Day salaries are credited each cycle (capped at 28 to stay valid for every month).</p>
+              </Field>
+              <Field label="Rounding Rule">
+                <select className={inputCls} value={payrollForm.rounding_rule} onChange={(e) => setPayrollForm((f: any) => ({ ...f, rounding_rule: e.target.value }))}>
+                  <option value="nearest_rupee">Nearest ₹1</option>
+                  <option value="nearest_ten">Nearest ₹10</option>
+                  <option value="no_rounding">No Rounding</option>
+                </select>
+              </Field>
+            </div>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-ink-900 font-sans flex items-center gap-2"><Wallet className="w-4 h-4 text-brand" /> Overtime</p>
+              <Toggle checked={payrollForm.overtime_enabled} onChange={(v) => setPayrollForm((f: any) => ({ ...f, overtime_enabled: v }))} label="Enable overtime pay" />
+            </div>
+            <Field label="Overtime Rate Multiplier" error={errors.overtime_rate_multiplier}>
+              <input type="number" step="0.1" min={1} disabled={!payrollForm.overtime_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.overtime_rate_multiplier} onChange={(e) => setPayrollForm((f: any) => ({ ...f, overtime_rate_multiplier: e.target.value }))} />
+              <p className="text-[10px] text-ink-400 font-sans mt-1">e.g. 1.5 pays overtime hours at 1.5× the regular per-hour rate.</p>
+            </Field>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-ink-900 font-sans flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand" /> Provident Fund (PF)</p>
+              <Toggle checked={payrollForm.pf_enabled} onChange={(v) => setPayrollForm((f: any) => ({ ...f, pf_enabled: v }))} label="Enable PF" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Employee Rate (%)" error={errors.pf_employee_rate}>
+                <input type="number" step="0.1" disabled={!payrollForm.pf_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.pf_employee_rate} onChange={(e) => setPayrollForm((f: any) => ({ ...f, pf_employee_rate: e.target.value }))} />
+              </Field>
+              <Field label="Employer Rate (%)" error={errors.pf_employer_rate}>
+                <input type="number" step="0.1" disabled={!payrollForm.pf_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.pf_employer_rate} onChange={(e) => setPayrollForm((f: any) => ({ ...f, pf_employer_rate: e.target.value }))} />
+              </Field>
+              <Field label="Wage Ceiling (₹)" error={errors.pf_wage_ceiling}>
+                <input type="number" disabled={!payrollForm.pf_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.pf_wage_ceiling} onChange={(e) => setPayrollForm((f: any) => ({ ...f, pf_wage_ceiling: e.target.value }))} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-ink-900 font-sans flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand" /> ESI (Employee State Insurance)</p>
+              <Toggle checked={payrollForm.esi_enabled} onChange={(v) => setPayrollForm((f: any) => ({ ...f, esi_enabled: v }))} label="Enable ESI" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Employee Rate (%)" error={errors.esi_employee_rate}>
+                <input type="number" step="0.05" disabled={!payrollForm.esi_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.esi_employee_rate} onChange={(e) => setPayrollForm((f: any) => ({ ...f, esi_employee_rate: e.target.value }))} />
+              </Field>
+              <Field label="Employer Rate (%)" error={errors.esi_employer_rate}>
+                <input type="number" step="0.05" disabled={!payrollForm.esi_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.esi_employer_rate} onChange={(e) => setPayrollForm((f: any) => ({ ...f, esi_employer_rate: e.target.value }))} />
+              </Field>
+              <Field label="Wage Ceiling (₹)" error={errors.esi_wage_ceiling}>
+                <input type="number" disabled={!payrollForm.esi_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.esi_wage_ceiling} onChange={(e) => setPayrollForm((f: any) => ({ ...f, esi_wage_ceiling: e.target.value }))} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-ink-900 font-sans flex items-center gap-2"><Landmark className="w-4 h-4 text-brand" /> Professional Tax</p>
+              <Toggle checked={payrollForm.professional_tax_enabled} onChange={(v) => setPayrollForm((f: any) => ({ ...f, professional_tax_enabled: v }))} label="Enable Professional Tax" />
+            </div>
+            <Field label="Monthly Amount (₹)" error={errors.professional_tax_amount}>
+              <input type="number" disabled={!payrollForm.professional_tax_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={payrollForm.professional_tax_amount} onChange={(e) => setPayrollForm((f: any) => ({ ...f, professional_tax_amount: e.target.value }))} />
+              <p className="text-[10px] text-ink-400 font-sans mt-1">Flat monthly deduction, per applicable state slab.</p>
+            </Field>
+          </div>
+        </div>
+
+        <button onClick={savePayroll} disabled={savingPayroll}
+          className="flex items-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+          {savingPayroll ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingPayroll ? 'Saving…' : 'Save Payroll Settings'}
+        </button>
+        </>
+      )}
+
+      {activeTab === 'leave' && leaveSettingsForm && (
+        <>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-sans leading-relaxed">
+            {leaveSettings ? 'These policies are read from ' : 'This is a new settings table — '}<span className="font-semibold">leave_type_policies</span> and <span className="font-semibold">leave_settings</span>.
+            {' '}Each employee&apos;s actual running balance still lives on <span className="font-semibold">employees.casual_leave_balance / sick_leave_balance</span> and in <span className="font-semibold">leave_balances</span> — this page defines the policy going forward; it doesn&apos;t retroactively change balances already allocated to existing employees.
+          </p>
+        </div>
+
+        {/* General leave rules */}
+        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+          <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><Calendar className="w-4 h-4 text-brand" /> General Leave Rules</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Leave Year Starts In">
+              <select className={inputCls} value={leaveSettingsForm.leave_year_start_month} onChange={(e) => setLeaveSettingsForm((f: any) => ({ ...f, leave_year_start_month: e.target.value }))}>
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+            </Field>
+            <Field label="Minimum Notice (days)" error={errors.min_notice_days}>
+              <input type="number" min={0} className={inputCls} value={leaveSettingsForm.min_notice_days} onChange={(e) => setLeaveSettingsForm((f: any) => ({ ...f, min_notice_days: e.target.value }))} />
+              <p className="text-[10px] text-ink-400 font-sans mt-1">How far in advance an employee must apply for planned leave.</p>
+            </Field>
+            <Field label="Max Consecutive Days" error={errors.max_consecutive_days}>
+              <input type="number" min={1} className={inputCls} value={leaveSettingsForm.max_consecutive_days ?? ''} onChange={(e) => setLeaveSettingsForm((f: any) => ({ ...f, max_consecutive_days: e.target.value }))} placeholder="No cap" />
+              <p className="text-[10px] text-ink-400 font-sans mt-1">Leave blank for no cap on a single leave request.</p>
+            </Field>
+            <div className="flex items-center justify-between border border-[var(--border-subtle)] rounded-lg px-3 py-2.5">
+              <div>
+                <p className="text-xs font-semibold text-ink-600 font-sans">Allow Negative Balance</p>
+                <p className="text-[10px] text-ink-400 font-sans">Lets employees apply for leave beyond their remaining balance.</p>
+              </div>
+              <Toggle checked={leaveSettingsForm.allow_negative_balance} onChange={(v) => setLeaveSettingsForm((f: any) => ({ ...f, allow_negative_balance: v }))} label="Allow negative leave balance" />
+            </div>
+          </div>
+          <button onClick={saveLeaveSettings} disabled={savingLeaveSettings}
+            className="mt-4 flex items-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+            {savingLeaveSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingLeaveSettings ? 'Saving…' : 'Save Leave Rules'}
+          </button>
+        </div>
+
+        {/* Per leave-type policy */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {['Casual Leave', 'Sick Leave', 'Unpaid Leave'].map((leaveType) => {
+            const f = leaveTypeForms[leaveType];
+            if (!f) return null;
+            const isUnpaid = leaveType === 'Unpaid Leave';
+            const tint = leaveType === 'Casual Leave' ? 'bg-blue-50 text-blue-600' : leaveType === 'Sick Leave' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500';
+            return (
+              <div key={leaveType} className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card flex flex-col">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${tint}`}><Calendar className="w-4 h-4" /></span>
+                  <p className="text-sm font-bold text-ink-900 font-sans">{leaveType}</p>
+                </div>
+                <div className="space-y-4 flex-1">
+                  {isUnpaid ? (
+                    <p className="text-xs text-ink-400 font-sans italic">Unpaid Leave has no annual allocation or balance — employees can request it whenever paid leave is exhausted.</p>
+                  ) : (
+                    <Field label="Annual Allocation (days)" error={errors[`${leaveType}_allocation`]}>
+                      <input type="number" min={0} className={inputCls} value={f.annual_allocation ?? ''} onChange={(e) => setLeaveTypeForms((prev) => ({ ...prev, [leaveType]: { ...prev[leaveType], annual_allocation: e.target.value } }))} />
+                    </Field>
+                  )}
+                  {!isUnpaid && (
+                    <>
+                      <Field label="Accrual Method">
+                        <select className={inputCls} value={f.accrual_method} onChange={(e) => setLeaveTypeForms((prev) => ({ ...prev, [leaveType]: { ...prev[leaveType], accrual_method: e.target.value } }))}>
+                          <option value="annual">Full amount at year start</option>
+                          <option value="monthly">Accrued monthly</option>
+                        </select>
+                      </Field>
+                      <div className="flex items-center justify-between border border-[var(--border-subtle)] rounded-lg px-3 py-2.5">
+                        <p className="text-xs font-semibold text-ink-600 font-sans">Carry Forward</p>
+                        <Toggle checked={f.carry_forward_enabled} onChange={(v) => setLeaveTypeForms((prev) => ({ ...prev, [leaveType]: { ...prev[leaveType], carry_forward_enabled: v } }))} label={`Carry forward ${leaveType}`} />
+                      </div>
+                      {f.carry_forward_enabled && (
+                        <Field label="Max Carry-Forward (days)" error={errors[`${leaveType}_carry`]}>
+                          <input type="number" min={0} className={inputCls} value={f.carry_forward_max ?? 0} onChange={(e) => setLeaveTypeForms((prev) => ({ ...prev, [leaveType]: { ...prev[leaveType], carry_forward_max: e.target.value } }))} />
+                        </Field>
+                      )}
+                    </>
+                  )}
+                </div>
+                {!isUnpaid && (
+                  <button onClick={() => saveLeaveTypePolicy(leaveType)} disabled={savingLeaveType === leaveType}
+                    className="mt-4 flex items-center justify-center gap-1.5 text-xs font-sans font-semibold px-3 py-2.5 rounded-lg border border-brand text-brand hover:bg-[var(--brand-primary-subtle)] disabled:opacity-50">
+                    {savingLeaveType === leaveType ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} {savingLeaveType === leaveType ? 'Saving…' : `Save ${leaveType} Policy`}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        </>
+      )}
+
+      {activeTab === 'notifications' && notificationForm && (
+        <>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-sans leading-relaxed">
+            These preferences save for real to <span className="font-semibold">notification_settings</span>. But there&apos;s no email/SMS provider connected in this project yet, and the bell icon in the header is still a UI placeholder —
+            {' '}so nothing will actually be sent or shown until that delivery layer is built. This page defines what people will get once it exists.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-1 flex items-center gap-2"><Bell className="w-4 h-4 text-brand" /> Notification Events</p>
+            <p className="text-[10px] text-ink-400 font-sans mb-4">Choose what you want to be notified about. Each of these maps to a real event already happening in HRBharat.</p>
+            <div className="space-y-1">
+              {[
+                { key: 'notify_leave_requests', label: 'New Leave Request', sub: 'When an employee submits a leave request.' },
+                { key: 'notify_advance_requests', label: 'New Advance Request', sub: 'When an employee requests a salary advance.' },
+                { key: 'notify_new_employee', label: 'New Employee Added', sub: 'When an employee record is created.' },
+                { key: 'notify_payroll_processed', label: 'Payroll Processed', sub: 'When a payroll run completes for the month.' },
+                { key: 'notify_attendance_anomalies', label: 'Attendance Anomalies', sub: 'Late check-ins or missed check-outs.' },
+                { key: 'notify_low_leave_balance', label: 'Low Leave Balance', sub: 'When an employee is close to exhausting their balance.' },
+              ].map((row) => (
+                <div key={row.key} className="flex items-center justify-between gap-3 py-2.5 border-b border-[var(--border-subtle)] last:border-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-ink-900 font-sans">{row.label}</p>
+                    <p className="text-[10px] text-ink-400 font-sans">{row.sub}</p>
+                  </div>
+                  <Toggle checked={notificationForm[row.key]} onChange={(v) => setNotificationForm((f: any) => ({ ...f, [row.key]: v }))} label={row.label} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+              <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-brand" /> Delivery Channels</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border border-[var(--border-subtle)] rounded-lg px-3 py-2.5">
+                  <div>
+                    <p className="text-xs font-semibold text-ink-600 font-sans">Email</p>
+                    <p className="text-[10px] text-ink-400 font-sans">Requires an email provider to be connected — not wired up yet.</p>
+                  </div>
+                  <Toggle checked={notificationForm.email_channel_enabled} onChange={(v) => setNotificationForm((f: any) => ({ ...f, email_channel_enabled: v }))} label="Enable email notifications" />
+                </div>
+                <Field label="Notification Email" error={errors.notification_email}>
+                  <input disabled={!notificationForm.email_channel_enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={notificationForm.notification_email || ''} onChange={(e) => setNotificationForm((f: any) => ({ ...f, notification_email: e.target.value }))} placeholder="you@company.com" />
+                </Field>
+                <div className="flex items-center justify-between border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 opacity-60">
+                  <div>
+                    <p className="text-xs font-semibold text-ink-600 font-sans">In-App</p>
+                    <p className="text-[10px] text-ink-400 font-sans">The notification bell UI exists but isn&apos;t connected to real events yet.</p>
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase px-2 py-1 rounded-full bg-[var(--surface-card-hover)] text-ink-400 border border-[var(--border-subtle)] font-sans">Not live</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-ink-900 font-sans">Weekly Summary Email</p>
+                  <p className="text-[10px] text-ink-400 font-sans mt-1">A digest of attendance, leave, and payroll activity, sent once a week.</p>
+                </div>
+                <Toggle checked={notificationForm.weekly_summary_email} onChange={(v) => setNotificationForm((f: any) => ({ ...f, weekly_summary_email: v }))} label="Weekly summary email" />
+              </div>
+            </div>
+
+            <button onClick={saveNotifications} disabled={savingNotifications}
+              className="w-full flex items-center justify-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+              {savingNotifications ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingNotifications ? 'Saving…' : 'Save Notification Preferences'}
+            </button>
+          </div>
+        </div>
+        </>
+      )}
+
+      {activeTab === 'integrations' && webhookForm && (
+        <>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-sans leading-relaxed">
+            HRBharat has no OAuth apps or provider credentials connected for any third-party service yet, so a real &quot;Connect&quot; flow for WhatsApp, Slack, Google Calendar, etc. isn&apos;t possible from here.
+            {' '}The one integration below is genuinely functional to configure: a custom outbound webhook. Like Notifications, it saves for real but needs backend trigger code (not present in this project) to actually fire.
+          </p>
+        </div>
+
+        {/* Custom Webhook — the one real integration */}
+        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold text-ink-900 font-sans flex items-center gap-2"><Webhook className="w-4 h-4 text-brand" /> Custom Webhook</p>
+            <Toggle checked={webhookForm.enabled} onChange={(v) => setWebhookForm((f: any) => ({ ...f, enabled: v }))} label="Enable webhook" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <Field label="Endpoint URL" error={errors.endpoint_url}>
+                <input disabled={!webhookForm.enabled} className={`${inputCls} disabled:bg-[var(--surface-card-hover)] disabled:text-ink-400`} value={webhookForm.endpoint_url || ''} onChange={(e) => setWebhookForm((f: any) => ({ ...f, endpoint_url: e.target.value }))} placeholder="https://your-system.com/webhooks/hrbharat" />
+              </Field>
+              {webhookForm.signing_secret ? (
+                <Field label="Signing Secret">
+                  <div className="flex items-center gap-2">
+                    <input readOnly className={`${inputCls} font-mono text-xs`} value={webhookForm.signing_secret} />
+                    <button onClick={copySigningSecret} aria-label="Copy signing secret" className="p-2.5 rounded-lg border border-[var(--border-subtle)] text-ink-600 hover:bg-[var(--surface-card-hover)] shrink-0">
+                      {secretCopied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-ink-400 font-sans mt-1">Used to verify payloads actually came from HRBharat once delivery is implemented.</p>
+                </Field>
+              ) : (
+                <p className="text-[10px] text-ink-400 font-sans italic">A signing secret will be generated automatically the first time you save.</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-ink-600 font-sans mb-2">Events to Send</p>
+              <div className="space-y-1">
+                {[
+                  { key: 'send_on_leave_request', label: 'New Leave Request' },
+                  { key: 'send_on_advance_request', label: 'New Advance Request' },
+                  { key: 'send_on_new_employee', label: 'New Employee Added' },
+                  { key: 'send_on_payroll_processed', label: 'Payroll Processed' },
+                ].map((row) => (
+                  <div key={row.key} className="flex items-center justify-between py-2 border-b border-[var(--border-subtle)] last:border-0">
+                    <p className="text-xs text-ink-600 font-sans">{row.label}</p>
+                    <Toggle checked={webhookForm[row.key]} onChange={(v) => setWebhookForm((f: any) => ({ ...f, [row.key]: v }))} label={row.label} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button onClick={saveWebhook} disabled={savingWebhook}
+            className="mt-5 flex items-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+            {savingWebhook ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingWebhook ? 'Saving…' : 'Save Webhook'}
+          </button>
+        </div>
+
+        {/* Available third-party integrations — honest placeholders, no fake "connected" state */}
+        <div>
+          <p className="text-sm font-bold text-ink-900 font-sans mb-1">Available Integrations</p>
+          <p className="text-[10px] text-ink-400 font-sans mb-4">These aren&apos;t connected yet — each needs a real provider account and OAuth setup on HRBharat&apos;s side first.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { name: 'WhatsApp Business', desc: 'Send payslips and leave approvals over WhatsApp.', icon: MessageCircle, tint: 'bg-emerald-50 text-emerald-600' },
+              { name: 'Google Calendar', desc: 'Sync approved leave onto employee calendars.', icon: Calendar, tint: 'bg-blue-50 text-blue-600' },
+              { name: 'Slack', desc: 'Post leave and attendance alerts to a channel.', icon: Hash, tint: 'bg-violet-50 text-violet-600' },
+              { name: 'Tally / Zoho Books', desc: 'Export payroll journal entries automatically.', icon: FileSpreadsheet, tint: 'bg-amber-50 text-amber-600' },
+              { name: 'Biometric Attendance', desc: 'Pull check-in/out data from a biometric device.', icon: Fingerprint, tint: 'bg-rose-50 text-rose-600' },
+            ].map((intg) => {
+              const Icon = intg.icon;
+              return (
+                <div key={intg.name} className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5 shadow-card flex flex-col">
+                  <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mb-3 ${intg.tint}`}><Icon className="w-4 h-4" /></span>
+                  <p className="text-sm font-semibold text-ink-900 font-sans">{intg.name}</p>
+                  <p className="text-[10px] text-ink-400 font-sans mt-1 flex-1">{intg.desc}</p>
+                  <button onClick={() => setLockedNote(intg.name)} className="mt-3 text-xs font-sans font-semibold px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-ink-600 hover:bg-[var(--surface-card-hover)]">Connect</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        </>
+      )}
 
         {/* Info bar */}
         <div className="bg-[var(--brand-primary-subtle)] border border-blue-100 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
