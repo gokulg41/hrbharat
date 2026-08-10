@@ -59,11 +59,17 @@ export default function EmployeesPage() {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const departmentOptions = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))).sort(),
+    () =>
+      Array.from(new Set(employees.map((e) => e.department)))
+        .filter((d): d is string => Boolean(d))
+        .sort(),
     [employees]
   );
   const employmentTypeOptions = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.employment_type).filter(Boolean))).sort() as string[],
+    () =>
+      Array.from(new Set(employees.map((e) => e.employment_type)))
+        .filter((t): t is string => Boolean(t))
+        .sort(),
     [employees]
   );
   const quickFilterItems = useMemo(() => computeQuickFilters(employees), [employees]);
