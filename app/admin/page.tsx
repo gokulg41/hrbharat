@@ -1,1050 +1,337 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Users, UserCheck, Palmtree, Building2, UserPlus, Plus, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { onboardEmployeeAction, updateCompanyGeofenceAction, createCompanyShiftAction, assignEmployeeShiftAction } from '@/lib/actions';
-import AdminTabsView from './tabs-view';
-import { CheckInsByHourChart, AttendanceDonut } from './dashboard-charts';
+import { useEmployees } from '@/lib/employees/useEmployees';
+import { computeQuickFilters, applyQuickFilter, type QuickFilterKey } from '@/lib/employees/quickFilters';
+import { exportEmployeesToCsv } from '@/lib/employees/exportCsv';
+import { getInitials } from '@/lib/employees/format';
+import type { Employee, StatusFilter } from '@/lib/employees/types';
 
-import {
-  UserPlus,
-  TrendingUp,
-  PieChart,
-  Sliders,
-  MapPin,
-  X,
-  ShieldAlert,
-  Cpu,
-  Users,
-  Activity,
-  Calendar,
-  CalendarCheck,
-  Layers,
-  Search,
-  Lock,
-  Terminal,
-  ChevronRight,
-  Bell,
-  HelpCircle,
-  ChevronDown,
-  IndianRupee,
-  Wallet,
-  BarChart3,
-  UserRound,
-  FileClock,
-} from 'lucide-react';
+import EmployeesPageHeader from '@/components/employees/EmployeesPageHeader';
+import EmployeeMetricCard from '@/components/employees/EmployeeMetricCard';
+import EmployeeFilters from '@/components/employees/EmployeeFilters';
+import EmployeeStatusTabs from '@/components/employees/EmployeeStatusTabs';
+import EmployeeTable from '@/components/employees/EmployeeTable';
+import EmployeePagination from '@/components/employees/EmployeePagination';
+import EmployeeEmptyState from '@/components/employees/EmployeeEmptyState';
+import EmployeeOverviewDonut from '@/components/employees/EmployeeOverviewDonut';
+import QuickFilters from '@/components/employees/QuickFilters';
+import DepartmentSummary from '@/components/employees/DepartmentSummary';
 
-/* ─────────────────────────────────────────────
-   Design tokens
-───────────────────────────────────────────── */
-const C = {
-  bg: 'var(--surface-canvas)',
-  surface: 'var(--surface-card)',
-  surfaceHover: 'var(--surface-card-hover)',
-  border: 'var(--border-subtle)',
-  borderLight: 'var(--border-subtle)',
-  text: 'var(--ink-900)',
-  muted: 'var(--ink-600)',
-  faint: 'var(--ink-400)',
-  input: 'var(--surface-card)',
-};
+export default function EmployeesPage() {
+  const router = useRouter();
 
-/* ─────────────────────────────────────────────
-   Tiny helpers
-───────────────────────────────────────────── */
-function Avatar({ name }: { name: string }) {
-  const initials = (name || '?')
-    .split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-  const hues = [210, 160, 340, 30, 280, 195];
-  const hue = hues[(name || '').charCodeAt(0) % hues.length];
-  return (
-    <span
-      className="inline-flex items-center justify-center w-9 h-9 rounded-full text-[11px] font-semibold shrink-0"
-      style={{ background: `hsl(${hue} 55% 88%)`, color: `hsl(${hue} 50% 35%)` }}
-    >
-      {initials}
-    </span>
-  );
-}
-
-function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
-  const map: Record<string, string> = {
-    gray: 'bg-surface-card-hover text-ink-600',
-    amber: 'bg-amber-50 text-amber-600',
-    teal: 'bg-teal-50 text-teal-700',
-    rose: 'bg-rose-50 text-rose-600',
-    emerald: 'bg-emerald-50 text-emerald-700',
-  };
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${map[color]}`}>
-      {children}
-    </span>
-  );
-}
-
-function SectionLabel({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-400 font-sans mb-3">
-      {icon && <span className="w-3.5 h-3.5 flex items-center justify-center">{icon}</span>}
-      {children}
-    </div>
-  );
-}
-
-function FormLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <label className="block text-[10px] font-semibold uppercase tracking-wider text-ink-600 font-sans mb-1">
-      {children}{required && <span className="text-rose-400 ml-0.5">*</span>}
-    </label>
-  );
-}
-
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`w-full text-sm font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400 ${props.className ?? ''}`}
-    />
-  );
-}
-
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl overflow-hidden ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-function Divider() {
-  return <div className="border-t border-[var(--border-subtle)]" />;
-}
-
-/* KPI card used in the top strip of the overview */
-function KpiCard({
-  icon,
-  iconBg,
-  iconColor,
-  label,
-  value,
-  sub,
-  subColor = 'text-ink-400',
-}: {
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  label: string;
-  value: string;
-  sub: string;
-  subColor?: string;
-}) {
-  return (
-    <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl px-5 py-4 flex flex-col gap-3">
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
-        {icon}
-      </div>
-      <div>
-        <span className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 block mb-1">{label}</span>
-        <span className="text-2xl font-bold text-ink-900 font-sans tabular-nums leading-none block">{value}</span>
-        <span className={`text-[11px] font-sans block mt-1.5 ${subColor}`}>{sub}</span>
-      </div>
-    </div>
-  );
-}
-
-/* Quick action row inside the Quick Actions card */
-function QuickAction({ icon, label, badge, onClick }: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-[var(--border-subtle)] hover:bg-[var(--surface-card-hover)] hover:border-[var(--border-hover)] transition-colors cursor-pointer group"
-    >
-      <span className="flex items-center gap-2.5 text-sm font-sans font-medium text-ink-900">
-        <span className="w-6 h-6 rounded-md bg-brand-subtle text-brand flex items-center justify-center shrink-0">{icon}</span>
-        {label}
-      </span>
-      <span className="flex items-center gap-2 shrink-0">
-        {!!badge && <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold flex items-center justify-center">{badge}</span>}
-        <ChevronRight className="w-3.5 h-3.5 text-ink-400 group-hover:text-ink-600 transition-colors" />
-      </span>
-    </button>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: 'bg-amber-50 text-amber-700',
-    approved: 'bg-emerald-50 text-emerald-700',
-    rejected: 'bg-rose-50 text-rose-700',
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize shrink-0 ${map[status] || 'bg-surface-card-hover text-ink-600'}`}>
-      {status}
-    </span>
-  );
-}
-
-function activityIcon(eventType?: string) {
-  const type = (eventType || '').toLowerCase();
-  if (type.includes('leave')) return <CalendarCheck className="w-3.5 h-3.5" />;
-  if (type.includes('payroll')) return <IndianRupee className="w-3.5 h-3.5" />;
-  if (type.includes('advance')) return <Wallet className="w-3.5 h-3.5" />;
-  if (type.includes('employee')) return <UserRound className="w-3.5 h-3.5" />;
-  return <FileClock className="w-3.5 h-3.5" />;
-}
-
-function timeAgo(dateStr: string) {
-  const diffMs = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
-}
-
-/* ─────────────────────────────────────────────
-   Main Component
-───────────────────────────────────────────── */
-export default function PremiumAdminUnifiedDashboard() {
-  const [currentSection, setCurrentSection] = useState<'ops' | 'security' | 'logs'>('ops');
-  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
-
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [designation, setDesignation] = useState('');
-  const [department, setDepartment] = useState('');
-  const [monthlySalary, setMonthlySalary] = useState('');
-  const [empCodeInput, setEmpCodeInput] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
-  const [ifscCode, setIfscCode] = useState('');
-  const [joiningDate, setJoiningDate] = useState(() => new Date().toISOString().split('T')[0]);
-
-  const [geoLat, setGeoLat] = useState('28.613939');
-  const [geoLng, setGeoLng] = useState('77.209021');
-  const [geoRadius, setGeoRadius] = useState('100');
-  const [allowedIpInput, setAllowedIpInput] = useState('');
-  const [updatingGeo, setUpdatingGeo] = useState(false);
-
-  const [shifts, setShifts] = useState<any[]>([]);
-  const [newShiftName, setNewShiftName] = useState('');
-  const [newShiftStart, setNewShiftStart] = useState('09:00');
-  const [newShiftEnd, setNewShiftEnd] = useState('18:00');
-  const [newShiftGrace, setNewShiftGrace] = useState('15');
-  const [buildingShift, setBuildingShift] = useState(false);
-
-  const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
-  const [dailyTaskLogs, setDailyTaskLogs] = useState<any[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [advanceRequests, setAdvanceRequests] = useState<any[]>([]);
-  const [regularizations, setRegularizations] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [systemLogs, setSystemLogs] = useState<any[]>([]);
-
-  const [activeTab, setActiveTab] = useState<'roster' | 'leaves' | 'advances' | 'tasks' | 'compliance' | 'payroll' | 'logs'>('roster');
-  const [searchQuery, setSearchQuery] = useState('');
+  // ── Workspace identity (mirrors the pattern in app layout.tsx) ──
+  const [adminName, setAdminName] = useState('Administrator');
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState('Enterprise Workspace');
-  const [adminFirstName, setAdminFirstName] = useState('');
-
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const [editingEmployee, setEditingEmployee] = useState<any | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editDesignation, setEditDesignation] = useState('');
-  const [editDepartment, setEditDepartment] = useState('');
-  const [editSalary, setEditSalary] = useState('');
-  const [editBankAccount, setEditBankAccount] = useState('');
-  const [editIfscCode, setEditIfscCode] = useState('');
-
-  const handleUpdateWorkflowStatus = async (table: string, id: string, status: string) => {
-    try {
-      const { error } = await supabase.from(table).update({ status }).eq('id', id);
-      if (error) throw error;
-      if (companyId) await refreshOperationalData(companyId);
-    } catch (error) {
-      console.error('Error updating status:', error);
-    }
-  };
-
-  const refreshOperationalData = async (targetCompanyId: string) => {
-    try {
-      const [employeesRes, leavesRes, advancesRes, attendanceRes, tasksRes, shiftsRes, regularizationsRes, logsRes] = await Promise.all([
-        supabase.from('employees').select('*, company_shifts(*)').eq('company_id', targetCompanyId).order('created_at', { ascending: false }),
-        supabase.from('leave_requests').select('*').eq('company_id', targetCompanyId).eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('advance_salary_requests').select('*').eq('company_id', targetCompanyId).eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('attendance').select('*').eq('company_id', targetCompanyId).order('created_at', { ascending: false }),
-        supabase.from('daily_tasks').select('*').eq('company_id', targetCompanyId).order('created_at', { ascending: false }),
-        supabase.from('company_shifts').select('*').eq('company_id', targetCompanyId).order('created_at', { ascending: false }),
-        supabase.from('attendance_regularizations').select('*').eq('company_id', targetCompanyId).eq('status', 'pending').order('created_at', { ascending: false }),
-        supabase.from('system_audit_logs').select('*').eq('company_id', targetCompanyId).order('created_at', { ascending: false }),
-      ]);
-      if (employeesRes.data) setEmployees(employeesRes.data);
-      if (leavesRes.data) setLeaveRequests(leavesRes.data);
-      if (advancesRes.data) setAdvanceRequests(advancesRes.data);
-      if (attendanceRes.data) setTodayAttendance(attendanceRes.data);
-      if (tasksRes.data) setDailyTaskLogs(tasksRes.data);
-      if (shiftsRes.data) setShifts(shiftsRes.data);
-      if (regularizationsRes.data) setRegularizations(regularizationsRes.data);
-      if (logsRes.data) setSystemLogs(logsRes.data);
-    } catch (err) {
-      console.error('Dashboard sync failure:', err);
-    }
-  };
 
   useEffect(() => {
-    async function loadAdminWorkspace() {
-      const { data: { user } } = await supabase.auth.getUser();
+    async function loadIdentity() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from('profiles').select('company_id, full_name').eq('id', user.id).single();
-      if (profile?.full_name) setAdminFirstName(profile.full_name.split(' ')[0]);
-      if (profile?.company_id) {
-        setCompanyId(profile.company_id);
-        const { data: comp } = await supabase.from('companies').select('name').eq('id', profile.company_id).single();
-        if (comp?.name) setCompanyName(comp.name);
-        const { data: geoSettings } = await supabase.from('company_settings').select('*').eq('company_id', profile.company_id).single();
-        if (geoSettings) {
-          setGeoLat(geoSettings.latitude.toString());
-          setGeoLng(geoSettings.longitude.toString());
-          setGeoRadius(geoSettings.radius_meters.toString());
-          if (geoSettings.allowed_ip) setAllowedIpInput(geoSettings.allowed_ip);
-        }
-        await refreshOperationalData(profile.company_id);
-      }
-      setLoading(false);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, company_id')
+        .eq('id', user.id)
+        .single();
+      if (profile?.full_name) setAdminName(profile.full_name);
+      if (profile?.company_id) setCompanyId(profile.company_id);
     }
-    loadAdminWorkspace();
+    loadIdentity();
   }, []);
 
-  const handleOnboardSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyId) return;
-    setSubmitting(true);
-    setStatusMessage(null);
-    const payload = {
-      companyId: String(companyId),
-      fullName: fullName.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone.trim(),
-      designation: designation.trim() || 'Staff',
-      department: department.trim() || 'Operations',
-      monthlySalary: Number(monthlySalary) || 0,
-      employeeCode: empCodeInput.toUpperCase().trim(),
-      bankAccount: bankAccount.trim(),
-      ifscCode: ifscCode.toUpperCase().trim(),
-      joiningDate,
-    };
-    try {
-      const res = await onboardEmployeeAction(payload);
-      if (res?.success) {
-        setStatusMessage({ type: 'success', text: `Employee added. Temp password: ${res.tempPassword}` });
-        await refreshOperationalData(companyId);
-        setFullName(''); setEmail(''); setPhone(''); setDesignation(''); setDepartment('');
-        setMonthlySalary(''); setEmpCodeInput(''); setBankAccount(''); setIfscCode('');
-        setAddEmployeeOpen(false);
-      } else {
-        setStatusMessage({ type: 'error', text: res?.error ?? 'Failed to add employee.' });
-      }
-    } catch {
-      setStatusMessage({ type: 'error', text: 'Network error during submission.' });
-    } finally {
-      setSubmitting(false);
+  const { employees, loading, error, metrics, refetch } = useEmployees(companyId);
+
+  // ── Filter / search / tab / pagination state ──
+  const [search, setSearch] = useState('');
+  const [department, setDepartment] = useState('All Departments');
+  const [employmentType, setEmploymentType] = useState('All Types');
+  const [statusTab, setStatusTab] = useState<StatusFilter>('all');
+  const [quickFilterKey, setQuickFilterKey] = useState<QuickFilterKey | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))).sort(),
+    [employees]
+  );
+  const employmentTypeOptions = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.employment_type).filter(Boolean))).sort() as string[],
+    [employees]
+  );
+  const quickFilterItems = useMemo(() => computeQuickFilters(employees), [employees]);
+
+  const filteredEmployees = useMemo(() => {
+    let result: Employee[] = employees;
+
+    if (quickFilterKey) result = applyQuickFilter(result, quickFilterKey);
+    if (statusTab !== 'all') result = result.filter((e) => e.status === statusTab);
+    if (department !== 'All Departments') result = result.filter((e) => e.department === department);
+    if (employmentType !== 'All Types') result = result.filter((e) => e.employment_type === employmentType);
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.full_name.toLowerCase().includes(q) ||
+          e.email.toLowerCase().includes(q) ||
+          e.employee_code.toLowerCase().includes(q) ||
+          (e.phone ?? '').toLowerCase().includes(q)
+      );
     }
+
+    return result;
+  }, [employees, quickFilterKey, statusTab, department, employmentType, search]);
+
+  // Reset to page 1 whenever the result set changes shape
+  useEffect(() => {
+    setPage(1);
+  }, [search, department, employmentType, statusTab, quickFilterKey, pageSize]);
+
+  const paginatedEmployees = useMemo(() => {
+    const startIdx = (page - 1) * pageSize;
+    return filteredEmployees.slice(startIdx, startIdx + pageSize);
+  }, [filteredEmployees, page, pageSize]);
+
+  const statusCounts = {
+    all: employees.length,
+    active: metrics.active,
+    on_leave: metrics.onLeave,
+    inactive: metrics.inactive,
   };
 
-  const handleCreateShift = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyId || !newShiftName) return;
-    setBuildingShift(true);
-    const res = await createCompanyShiftAction({ companyId, shiftName: newShiftName, startTime: newShiftStart, endTime: newShiftEnd, gracePeriod: parseInt(newShiftGrace) || 0 });
-    if (res.success) { setNewShiftName(''); await refreshOperationalData(companyId); }
-    setBuildingShift(false);
-  };
+  const hasAnyFilterApplied =
+    search.trim() !== '' ||
+    department !== 'All Departments' ||
+    employmentType !== 'All Types' ||
+    statusTab !== 'all' ||
+    quickFilterKey !== null;
 
-  const handleAllocateShiftMapping = async (employeeId: string, shiftId: string) => {
-    if (!companyId) return;
-    const res = await assignEmployeeShiftAction(employeeId, shiftId === 'NONE' ? null : shiftId);
-    if (res.success) await refreshOperationalData(companyId);
-  };
-
-  const handleUpdateGeofence = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyId) return;
-    setUpdatingGeo(true);
-    const res = await updateCompanyGeofenceAction({ companyId, latitude: parseFloat(geoLat) || 0, longitude: parseFloat(geoLng) || 0, radiusMeters: parseInt(geoRadius) || 100, allowedIp: allowedIpInput });
-    if (res.success) setStatusMessage({ type: 'success', text: 'Geofence updated successfully.' });
-    setUpdatingGeo(false);
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyId || !editingEmployee) return;
-    const { error } = await supabase.from('employees').update({
-      full_name: editName.trim(),
-      designation: editDesignation.trim() || null,
-      department: editDepartment.trim() || 'Operations',
-      monthly_salary: editSalary ? parseInt(editSalary) : 0,
-      bank_account_number: editBankAccount.trim() || null,
-      ifsc_code: editIfscCode.toUpperCase().trim() || null,
-    }).eq('id', editingEmployee.id);
-    if (!error) { setEditingEmployee(null); await refreshOperationalData(companyId); }
-  };
-
-  const startEditing = (emp: any) => {
-    setEditingEmployee(emp);
-    setEditName(emp.full_name);
-    setEditDesignation(emp.designation || '');
-    setEditDepartment(emp.department || '');
-    setEditSalary(emp.monthly_salary || '');
-    setEditBankAccount(emp.bank_account_number || '');
-    setEditIfscCode(emp.ifsc_code || '');
-  };
-
-  const goToTab = (section: 'ops' | 'security' | 'logs', tab?: typeof activeTab) => {
-    setCurrentSection(section);
-    if (tab) setActiveTab(tab);
-  };
-
-  const employeeNameById = (employeeId: string) =>
-    employees.find((e) => e.id === employeeId)?.full_name || 'Employee';
-  const employeeDesignationById = (employeeId: string) =>
-    employees.find((e) => e.id === employeeId)?.designation || 'Staff';
-
-  const totalPayrollLiability = employees.reduce((sum, emp) => sum + (Number(emp.monthly_salary) || 0), 0);
-  const deptCounts = employees.reduce((acc: any, emp) => { acc[emp.department || 'Operations'] = (acc[emp.department || 'Operations'] || 0) + 1; return acc; }, {});
-  const designationCounts = employees.reduce((acc: any, emp) => { acc[emp.designation || 'Staff'] = (acc[emp.designation || 'Staff'] || 0) + 1; return acc; }, {});
-  const currentAttendanceRate = employees.length > 0 ? Math.round((todayAttendance.length / employees.length) * 100) : 0;
-
-  const now = new Date();
-  const newHiresThisMonth = employees.filter((emp) => {
-    if (!emp.joining_date && !emp.created_at) return false;
-    const d = new Date(emp.joining_date || emp.created_at);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
-
-  const greetingHour = now.getHours();
-  const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Good afternoon' : 'Good evening';
-
-  const formatLakhs = (value: number) => {
-    if (value <= 0) return '₹0';
-    const lakhs = value / 100000;
-    return `₹${lakhs.toFixed(lakhs >= 10 ? 1 : 2)}L`;
-  };
-
-  const formatDateRange = (start: string, end: string) => {
-    if (!start) return '';
-    const s = new Date(start);
-    const e = end ? new Date(end) : s;
-    const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
-    const days = Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
-    return `${s.toLocaleDateString('en-IN', opts)} - ${e.toLocaleDateString('en-IN', opts)} (${days} day${days === 1 ? '' : 's'})`;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[var(--surface-canvas)] flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-sm bg-surface-card-hover animate-pulse" />
-          <p className="text-sm text-ink-400 font-sans">Loading workspace…</p>
-        </div>
-      </div>
-    );
+  function clearAllFilters() {
+    setSearch('');
+    setDepartment('All Departments');
+    setEmploymentType('All Types');
+    setStatusTab('all');
+    setQuickFilterKey(null);
   }
 
-  const navItems = [
-    { id: 'ops', label: 'Workspace', icon: <Users className="w-3.5 h-3.5" /> },
-    { id: 'security', label: 'Security', icon: <Lock className="w-3.5 h-3.5" /> },
-    { id: 'logs', label: 'Insights', icon: <Terminal className="w-3.5 h-3.5" /> },
-  ];
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const allOnPageSelected = paginatedEmployees.every((e) => prev.has(e.id));
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        paginatedEmployees.forEach((e) => next.delete(e.id));
+      } else {
+        paginatedEmployees.forEach((e) => next.add(e.id));
+      }
+      return next;
+    });
+  }
+
+  // ── TODO: wire these to your existing onboarding / view / edit flows ──
+  // These intentionally do NOT invent a fake flow. Point them at whatever
+  // your app already uses today (a route or a modal component).
+  function handleAddEmployee() {
+    router.push('/admin/employees/new'); // TODO: replace with your real route/modal
+  }
+  function handleViewEmployee(employee: Employee) {
+    router.push(`/admin/employees/${employee.id}`); // TODO: replace with your real route/modal
+  }
+  function handleEditEmployee(employee: Employee) {
+    router.push(`/admin/employees/${employee.id}/edit`); // TODO: replace with your real route/modal
+  }
+  function handleExport() {
+    exportEmployeesToCsv(filteredEmployees, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  }
+
+  const adminInitials = getInitials(adminName) || 'A';
+  const showEmptyNoEmployees = !loading && employees.length === 0;
+  const showEmptyNoResults = !loading && employees.length > 0 && filteredEmployees.length === 0;
 
   return (
-    <div className="min-h-screen bg-[var(--surface-canvas)] antialiased">
+    <div className="min-h-screen">
+      <EmployeesPageHeader
+        adminName={adminName}
+        initials={adminInitials}
+        notificationCount={3}
+        onSignOut={handleSignOut}
+      />
 
-      {/* ── Top bar ── */}
-      <header className="sticky top-0 z-40 bg-[var(--surface-card)]/90 backdrop-blur border-b border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-ink-900 font-sans leading-tight">
-              {adminFirstName ? `${greeting}, ${adminFirstName}` : greeting} 👋
-            </h1>
-          </div>
-          {currentSection === 'ops' && activeTab === 'roster' ? (
-            <p className="text-xs text-ink-400 font-sans mt-0.5 flex items-center gap-1">
-              <span>Employees</span>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-ink-600 font-medium">All Employees</span>
+      <div className="px-4 md:px-8 pb-10 space-y-6">
+        {/* Page title */}
+        <div className="flex flex-wrap items-start justify-between gap-4 pt-2 md:pt-0">
+          <div>
+            <h2 className="text-2xl font-bold text-ink-900 font-sans">Employees</h2>
+            <p className="text-sm text-ink-400 font-sans mt-1">
+              Manage your organization&rsquo;s employees and their information.
             </p>
-          ) : (
-            <p className="text-xs text-ink-400 font-sans mt-0.5">Here&apos;s what&apos;s happening in {companyName} today.</p>
+          </div>
+          <div className="flex items-center">
+            <button
+              onClick={handleAddEmployee}
+              className="flex items-center gap-1.5 pl-4 pr-3 py-2.5 rounded-l-lg bg-brand text-white text-sm font-medium font-sans hover:bg-brand-hover transition-colors cursor-pointer border-r border-white/20"
+            >
+              <Plus className="w-4 h-4" />
+              Add Employee
+            </button>
+            <button
+              onClick={handleAddEmployee}
+              className="px-2.5 py-2.5 rounded-r-lg bg-brand text-white hover:bg-brand-hover transition-colors cursor-pointer"
+              aria-label="More add options"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-status-danger-bg border border-status-danger/20 text-status-danger text-sm font-sans rounded-lg px-4 py-3">
+            Couldn&rsquo;t load employees: {error}
+          </div>
+        )}
+
+        {/* Summary metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          <EmployeeMetricCard
+            icon={Users}
+            iconColor="#1D4ED8"
+            iconBg="#EFF6FF"
+            label="Total Employees"
+            value={metrics.total}
+            supportingText={metrics.newHiresThisMonth > 0 ? `↑ ${metrics.newHiresThisMonth} this month` : undefined}
+            supportingTone="positive"
+            loading={loading}
+          />
+          <EmployeeMetricCard
+            icon={UserCheck}
+            iconColor="#15803D"
+            iconBg="#F0FDF4"
+            label="Active Employees"
+            value={metrics.active}
+            supportingText={metrics.total > 0 ? `${((metrics.active / metrics.total) * 100).toFixed(1)}% of total` : undefined}
+            loading={loading}
+          />
+          <EmployeeMetricCard
+            icon={Palmtree}
+            iconColor="#C2410C"
+            iconBg="#FFF7ED"
+            label="On Leave"
+            value={metrics.onLeave}
+            supportingText="Today"
+            loading={loading}
+          />
+          <EmployeeMetricCard
+            icon={Building2}
+            iconColor="#6D28D9"
+            iconBg="#F5F3FF"
+            label="Departments"
+            value={metrics.departmentCount}
+            supportingText="Across organization"
+            loading={loading}
+          />
+          <EmployeeMetricCard
+            icon={UserPlus}
+            iconColor="#1D4ED8"
+            iconBg="#EFF6FF"
+            label="New Hires (This Month)"
+            value={metrics.newHiresThisMonth}
+            supportingText={
+              metrics.newHiresThisMonth >= metrics.newHiresLastMonth
+                ? `↑ ${metrics.newHiresThisMonth - metrics.newHiresLastMonth} vs last month`
+                : `↓ ${metrics.newHiresLastMonth - metrics.newHiresThisMonth} vs last month`
+            }
+            supportingTone={metrics.newHiresThisMonth >= metrics.newHiresLastMonth ? 'positive' : 'neutral'}
+            loading={loading}
+          />
+        </div>
+
+        {/* Main content: table + right rail */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="space-y-4 min-w-0">
+            <EmployeeFilters
+              searchValue={search}
+              onSearchChange={setSearch}
+              departments={departmentOptions}
+              department={department}
+              onDepartmentChange={setDepartment}
+              employmentTypes={employmentTypeOptions}
+              employmentType={employmentType}
+              onEmploymentTypeChange={setEmploymentType}
+              onExport={handleExport}
+              onMoreFilters={() => {
+                /* TODO: hook up an advanced filters panel if/when you need one */
+              }}
+            />
+
+            <div className="bg-surface-card border border-border-subtle rounded-xl overflow-hidden">
+              <EmployeeStatusTabs active={statusTab} onChange={setStatusTab} counts={statusCounts} />
+
+              {loading ? (
+                <div className="py-16 text-center text-sm text-ink-400 font-sans">Loading employees…</div>
+              ) : showEmptyNoEmployees ? (
+                <EmployeeEmptyState variant="no-employees" onAddEmployee={handleAddEmployee} />
+              ) : showEmptyNoResults ? (
+                <EmployeeEmptyState
+                  variant="no-results"
+                  onAddEmployee={handleAddEmployee}
+                  onClearFilters={hasAnyFilterApplied ? clearAllFilters : undefined}
+                />
+              ) : (
+                <>
+                  <EmployeeTable
+                    employees={paginatedEmployees}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSelectAll={toggleSelectAll}
+                    onView={handleViewEmployee}
+                    onEdit={handleEditEmployee}
+                  />
+                  <EmployeePagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={filteredEmployees.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right rail */}
+          {!loading && employees.length > 0 && (
+            <div className="space-y-4">
+              <div className="bg-surface-card border border-border-subtle rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-ink-900 font-sans mb-4">Employee Overview</h3>
+                <EmployeeOverviewDonut active={metrics.active} onLeave={metrics.onLeave} inactive={metrics.inactive} />
+              </div>
+
+              <QuickFilters items={quickFilterItems} activeKey={quickFilterKey} onSelect={(key) => setQuickFilterKey((prev) => (prev === key ? null : key))} />
+
+              <DepartmentSummary departments={metrics.departmentBreakdown} />
+            </div>
           )}
         </div>
-
-        <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
-          {/* Global search — routes into the roster tab so it's a real, functional search */}
-          <div className="relative hidden md:block w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
-            <input
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                if (e.target.value) goToTab('ops', 'roster');
-              }}
-              placeholder="Search employees, payroll, reports…"
-              className="w-full pl-9 pr-3 py-2 text-xs font-sans text-ink-900 bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-ink-400"
-            />
-          </div>
-
-          <button className="p-2 rounded-lg text-ink-600 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
-            <Bell className="w-4 h-4" />
-          </button>
-          <button className="p-2 rounded-lg text-ink-600 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
-            <HelpCircle className="w-4 h-4" />
-          </button>
-
-          <button className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-full hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
-            <Avatar name={adminFirstName || 'Admin'} />
-            <ChevronDown className="w-3.5 h-3.5 text-ink-400" />
-          </button>
-
-          <button
-            onClick={() => setAddEmployeeOpen(true)}
-            className="flex items-center gap-1.5 bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold px-3.5 py-2.5 rounded-lg transition-colors cursor-pointer shrink-0"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            Add Employee
-          </button>
-        </div>
-      </header>
-
-      {/* ── Section nav ── */}
-      <div className="px-6 pt-4">
-        <nav className="inline-flex gap-0.5 bg-[var(--surface-card-hover)] p-1 rounded-lg border border-[var(--border-subtle)]">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setCurrentSection(item.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-sans font-medium cursor-pointer transition-all ${
-                currentSection === item.id
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-ink-600 hover:text-ink-900'
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </nav>
       </div>
-
-      {/* ── Status banner ── */}
-      {statusMessage && (
-        <div className={`mx-6 mt-4 px-4 py-3 rounded-lg border text-xs font-sans flex items-center gap-3 ${
-          statusMessage.type === 'success'
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            : 'bg-rose-50 border-rose-200 text-rose-700'
-        }`}>
-          <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-          <span className="flex-1">{statusMessage.text}</span>
-          <button onClick={() => setStatusMessage(null)} className="p-0.5 rounded hover:bg-black/5 cursor-pointer">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
-
-      {/* ── Main content ── */}
-      <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
-
-        {/* ═══════════════════════════════
-            SECTION: WORKSPACE (overview + roster tabs)
-        ═══════════════════════════════ */}
-        {currentSection === 'ops' && (
-          <div className="space-y-6">
-
-            {/* KPI cards, analytics, and workspace summary — this is the operational
-                overview and is intentionally hidden while the Employees (roster) tab
-                is open, since that view now has its own purpose-built metrics/summary
-                panels. It still renders for the other ops tabs (leaves, advances,
-                tasks, corrections, payroll) where it provides useful context. */}
-            {activeTab !== 'roster' && (
-            <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard
-                icon={<Users className="w-4 h-4" />}
-                iconBg="bg-brand-subtle"
-                iconColor="text-brand"
-                label="Active Employees"
-                value={String(employees.length)}
-                sub={employees.length === 0 ? 'No hires yet' : newHiresThisMonth > 0 ? `+${newHiresThisMonth} this month` : `${employees.length} on payroll`}
-                subColor={newHiresThisMonth > 0 ? 'text-emerald-600' : 'text-ink-400'}
-              />
-              <KpiCard
-                icon={<IndianRupee className="w-4 h-4" />}
-                iconBg="bg-emerald-50"
-                iconColor="text-emerald-700"
-                label="Monthly Payroll"
-                value={formatLakhs(totalPayrollLiability)}
-                sub={totalPayrollLiability === 0 ? 'Runs after roster is set' : 'Current cycle · gross'}
-              />
-              <KpiCard
-                icon={<Calendar className="w-4 h-4" />}
-                iconBg="bg-amber-50"
-                iconColor="text-amber-700"
-                label="On Leave Today"
-                value={String(leaveRequests.length)}
-                sub="Pending approvals"
-                subColor={leaveRequests.length > 0 ? 'text-amber-600' : 'text-ink-400'}
-              />
-              <KpiCard
-                icon={<Activity className="w-4 h-4" />}
-                iconBg="bg-violet-50"
-                iconColor="text-violet-700"
-                label="Attendance Today"
-                value={employees.length === 0 ? '—' : `${currentAttendanceRate}%`}
-                sub={employees.length === 0 ? 'Needs first check-in' : `${todayAttendance.length} of ${employees.length} present`}
-              />
-            </div>
-
-            {/* Analytics row: check-ins + donut + quick actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-              <div className="lg:col-span-5">
-                <CheckInsByHourChart todayAttendance={todayAttendance} />
-              </div>
-              <div className="lg:col-span-4">
-                <AttendanceDonut employees={employees} todayAttendance={todayAttendance} leaveRequests={leaveRequests} />
-              </div>
-              <div className="lg:col-span-3">
-                <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5 h-full flex flex-col">
-                  <h3 className="text-sm font-semibold text-ink-900 font-sans mb-4">Quick Actions</h3>
-                  <div className="space-y-2">
-                    <QuickAction icon={<UserPlus className="w-3.5 h-3.5" />} label="Add Employee" onClick={() => setAddEmployeeOpen(true)} />
-                    <QuickAction icon={<IndianRupee className="w-3.5 h-3.5" />} label="Run Payroll" onClick={() => goToTab('ops', 'payroll')} />
-                    <QuickAction icon={<CalendarCheck className="w-3.5 h-3.5" />} label="Approve Leave" badge={leaveRequests.length} onClick={() => goToTab('ops', 'leaves')} />
-                    <QuickAction icon={<Wallet className="w-3.5 h-3.5" />} label="Add Advance" badge={advanceRequests.length} onClick={() => goToTab('ops', 'advances')} />
-                    <QuickAction icon={<BarChart3 className="w-3.5 h-3.5" />} label="View Insights" onClick={() => goToTab('logs')} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom row: leave requests + payroll summary + recent activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-
-              {/* Leave requests */}
-              <Card>
-                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-                  <SectionLabel icon={<CalendarCheck className="w-3.5 h-3.5" />}>Leave Requests</SectionLabel>
-                  <button onClick={() => goToTab('ops', 'leaves')} className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
-                    View all
-                  </button>
-                </div>
-                <Divider />
-                {leaveRequests.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
-                    <CalendarCheck className="w-6 h-6 text-ink-400" />
-                    <p className="text-xs text-ink-400 font-sans max-w-[220px]">No pending leave requests right now.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-[var(--border-subtle)] max-h-[320px] overflow-y-auto">
-                    {leaveRequests.slice(0, 5).map((req) => (
-                      <div key={req.id} className="px-5 py-3 flex items-center gap-3">
-                        <Avatar name={employeeNameById(req.employee_id)} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-ink-900 font-sans truncate">{employeeNameById(req.employee_id)}</p>
-                          <p className="text-[11px] text-ink-400 font-sans truncate">{employeeDesignationById(req.employee_id)} · {req.leave_type || 'Leave'}</p>
-                          <p className="text-[11px] text-ink-400 font-sans">{formatDateRange(req.start_date, req.end_date)}</p>
-                        </div>
-                        <StatusPill status={req.status || 'pending'} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              {/* Payroll summary */}
-              <Card>
-                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-                  <SectionLabel icon={<IndianRupee className="w-3.5 h-3.5" />}>Payroll Summary</SectionLabel>
-                  <button onClick={() => goToTab('ops', 'payroll')} className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
-                    View details
-                  </button>
-                </div>
-                <Divider />
-                <div className="p-5 space-y-3">
-                  <div className="flex items-center justify-between text-sm font-sans">
-                    <span className="text-ink-600">Total Employees</span>
-                    <span className="text-ink-900 font-semibold tabular-nums">{employees.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm font-sans">
-                    <span className="text-ink-600">Gross Payroll</span>
-                    <span className="text-ink-900 font-semibold tabular-nums">{formatLakhs(totalPayrollLiability)}</span>
-                  </div>
-                  <Divider />
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-sm font-sans font-semibold text-brand">Monthly Payroll</span>
-                    <span className="text-xl font-bold text-brand font-sans tabular-nums">{formatLakhs(totalPayrollLiability)}</span>
-                  </div>
-                  <p className="text-[10px] text-ink-400 font-sans leading-relaxed">
-                    Deduction breakdown will appear here once a payroll run has been processed for this cycle.
-                  </p>
-                </div>
-              </Card>
-
-              {/* Recent activity */}
-              <Card>
-                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-                  <SectionLabel icon={<Layers className="w-3.5 h-3.5" />}>Recent Activity</SectionLabel>
-                  <button onClick={() => goToTab('logs')} className="text-[11px] font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer">
-                    View all
-                  </button>
-                </div>
-                <Divider />
-                {systemLogs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
-                    <Layers className="w-6 h-6 text-ink-400" />
-                    <p className="text-xs text-ink-400 font-sans max-w-[220px]">Activity will appear here as your team uses HRBharat.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-[var(--border-subtle)] max-h-[320px] overflow-y-auto">
-                    {systemLogs.slice(0, 5).map((log) => (
-                      <div key={log.id} className="px-5 py-3 flex items-start gap-3">
-                        <span className="w-7 h-7 rounded-lg bg-brand-subtle text-brand flex items-center justify-center shrink-0 mt-0.5">
-                          {activityIcon(log.event_type)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs text-ink-900 font-sans leading-snug">{log.description}</p>
-                          <p className="text-[10px] text-ink-400 font-sans mt-0.5">{timeAgo(log.created_at)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
-            </>
-            )}
-
-            {/* Tabs panel (roster / leaves / advances / tasks / compliance / payroll) */}
-            <Card className="min-h-[500px] flex flex-col">
-              <div className="flex flex-wrap gap-0.5 p-2 border-b border-[var(--border-subtle)] bg-[var(--surface-canvas)]/60">
-                {[
-                  { id: 'roster', label: 'Employees' },
-                  { id: 'leaves', label: `Leaves (${leaveRequests.length})` },
-                  { id: 'advances', label: `Advances (${advanceRequests.length})` },
-                  { id: 'tasks', label: 'Tasks' },
-                  { id: 'compliance', label: `Corrections (${regularizations.length})` },
-                  { id: 'payroll', label: 'Payroll' },
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveTab(t.id as any)}
-                    className={`text-[11px] font-sans font-medium px-3.5 py-2 rounded-md cursor-pointer transition-all ${
-                      activeTab === t.id
-                        ? 'bg-[var(--surface-card)] text-ink-900 border border-[var(--border-subtle)] shadow-sm'
-                        : 'text-ink-600 hover:text-ink-900'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1 flex flex-col">
-                <AdminTabsView
-                  activeTab={activeTab}
-                  employees={employees}
-                  leaveRequests={leaveRequests}
-                  advanceRequests={advanceRequests}
-                  dailyTaskLogs={dailyTaskLogs}
-                  regularizations={regularizations}
-                  systemLogs={systemLogs}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  startEditing={startEditing}
-                  handleUpdateWorkflowStatus={(table, id, status) => handleUpdateWorkflowStatus(table, id, status)}
-                  refreshOperationalData={async () => await refreshOperationalData(companyId!)}
-                  onAddEmployee={() => setAddEmployeeOpen(true)}
-                />
-              </div>
-            </Card>
-
-            {/* Shift management */}
-            <Card>
-              <div className="px-5 pt-5 pb-2">
-                <SectionLabel icon={<Sliders className="w-3.5 h-3.5" />}>Shift Configuration & Assignments</SectionLabel>
-                <p className="text-xs text-ink-600 font-sans -mt-1 mb-4">Define shift rules and assign them to individual employees.</p>
-              </div>
-              <Divider />
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-5">
-
-                {/* Create shift form */}
-                <form onSubmit={handleCreateShift} className="lg:col-span-4 bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
-                  <SectionLabel>New Shift</SectionLabel>
-                  <Input required placeholder="Shift name" value={newShiftName} onChange={e => setNewShiftName(e.target.value)} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div><FormLabel>Start</FormLabel><Input type="time" required value={newShiftStart} onChange={e => setNewShiftStart(e.target.value)} /></div>
-                    <div><FormLabel>End</FormLabel><Input type="time" required value={newShiftEnd} onChange={e => setNewShiftEnd(e.target.value)} /></div>
-                  </div>
-                  <div><FormLabel>Grace period (min)</FormLabel><Input type="number" required value={newShiftGrace} onChange={e => setNewShiftGrace(e.target.value)} /></div>
-                  <button type="submit" disabled={buildingShift} className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50">
-                    {buildingShift ? 'Saving…' : 'Save Shift'}
-                  </button>
-                </form>
-
-                {/* Assign shifts */}
-                <div className="lg:col-span-8 max-h-[220px] overflow-y-auto divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-lg">
-                  {employees.length === 0 ? (
-                    <p className="p-4 text-center text-xs text-ink-400 font-sans italic">No employees to assign.</p>
-                  ) : employees.map((emp) => (
-                    <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-[var(--surface-card-hover)] transition-colors">
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={emp.full_name} />
-                        <div>
-                          <p className="text-sm font-semibold text-ink-900 font-sans leading-snug">{emp.full_name}</p>
-                          <p className="text-[11px] text-ink-400 font-sans">{emp.designation || 'Staff'} · {emp.department || 'Operations'}</p>
-                        </div>
-                      </div>
-                      <select
-                        defaultValue={emp.assigned_shift_id || 'NONE'}
-                        onChange={e => handleAllocateShiftMapping(emp.id, e.target.value)}
-                        className="text-xs font-sans text-ink-900 bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
-                      >
-                        <option value="NONE">Default policy</option>
-                        {shifts.map(s => (
-                          <option key={s.id} value={s.id}>{s.shift_name} [{s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}]</option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════
-            SECTION: SECURITY / GEOFENCE
-        ═══════════════════════════════ */}
-        {currentSection === 'security' && (
-          <Card>
-            <div className="px-5 pt-5 pb-2">
-              <SectionLabel icon={<MapPin className="w-3.5 h-3.5" />}>Geofence & IP Controls</SectionLabel>
-              <p className="text-xs text-ink-600 font-sans -mt-1 mb-4">
-                Set the spatial radius and network gateway that gate employee check-ins.
-              </p>
-            </div>
-            <Divider />
-            <div className="p-5">
-              <form onSubmit={handleUpdateGeofence} className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-5 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                <div><FormLabel required>Latitude</FormLabel><Input type="number" step="any" required value={geoLat} onChange={e => setGeoLat(e.target.value)} /></div>
-                <div><FormLabel required>Longitude</FormLabel><Input type="number" step="any" required value={geoLng} onChange={e => setGeoLng(e.target.value)} /></div>
-                <div><FormLabel required>Radius (m)</FormLabel><Input type="number" required value={geoRadius} onChange={e => setGeoRadius(e.target.value)} /></div>
-                <div><FormLabel>Allowed IP</FormLabel><Input value={allowedIpInput} onChange={e => setAllowedIpInput(e.target.value)} placeholder="192.168.1.1" /></div>
-                <button type="submit" disabled={updatingGeo} className="h-[38px] w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50">
-                  {updatingGeo ? 'Saving…' : 'Save Boundaries'}
-                </button>
-              </form>
-            </div>
-          </Card>
-        )}
-
-        {/* ═══════════════════════════════
-            SECTION: LOGS & TELEMETRY
-        ═══════════════════════════════ */}
-        {currentSection === 'logs' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              {/* Attendance rate */}
-              <Card>
-                <div className="px-5 pt-5 pb-3">
-                  <SectionLabel icon={<TrendingUp className="w-3.5 h-3.5" />}>Attendance Rate</SectionLabel>
-                  <div className="flex items-end justify-between mb-2">
-                    <span className="text-3xl font-bold text-ink-900 font-sans tabular-nums">{currentAttendanceRate}%</span>
-                    <span className="text-xs text-ink-400 font-sans">{todayAttendance.length} / {employees.length} present</span>
-                  </div>
-                  <div className="w-full h-2 bg-[var(--border-subtle)] rounded-full overflow-hidden">
-                    <div className="h-full bg-brand rounded-full transition-all duration-500" style={{ width: `${currentAttendanceRate}%` }} />
-                  </div>
-                </div>
-                <Divider />
-                <div className="grid grid-cols-2 divide-x divide-[var(--border-subtle)]">
-                  <div className="px-5 py-4">
-                    <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 mb-0.5">Total Employees</p>
-                    <p className="text-xl font-bold text-ink-900 font-sans">{employees.length}</p>
-                  </div>
-                  <div className="px-5 py-4">
-                    <p className="text-[10px] font-sans font-semibold uppercase tracking-widest text-ink-400 mb-0.5">Monthly Payroll</p>
-                    <p className="text-xl font-bold text-ink-900 font-sans">₹{totalPayrollLiability.toLocaleString('en-IN')}</p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Dept distribution */}
-              <Card>
-                <div className="px-5 pt-5 pb-3">
-                  <SectionLabel icon={<PieChart className="w-3.5 h-3.5" />}>Department Distribution</SectionLabel>
-                </div>
-                <Divider />
-                <div className="p-3 max-h-48 overflow-y-auto divide-y divide-[var(--border-subtle)]">
-                  {Object.entries(deptCounts).length === 0 ? (
-                    <p className="px-2 py-4 text-xs text-ink-400 font-sans text-center italic">No departments defined yet.</p>
-                  ) : Object.entries(deptCounts).map(([dept, count]: any) => (
-                    <div key={dept} className="px-3 py-2.5 flex items-center justify-between hover:bg-[var(--surface-card-hover)] transition-colors">
-                      <span className="text-sm text-ink-900 font-sans truncate">{dept}</span>
-                      <Badge color="gray">{count} people</Badge>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            {/* Live attendance */}
-            <Card>
-              <div className="px-5 pt-5 pb-2 flex items-center justify-between">
-                <div>
-                  <SectionLabel icon={<Cpu className="w-3.5 h-3.5" />}>Live Attendance</SectionLabel>
-                </div>
-                <Badge color="emerald">Live</Badge>
-              </div>
-              <Divider />
-              {todayAttendance.length === 0 ? (
-                <p className="px-5 py-8 text-center text-sm text-ink-400 font-sans italic">No check-ins recorded yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 p-4 max-h-48 overflow-y-auto">
-                  {todayAttendance.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Avatar name={log.employee_name} />
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-ink-900 font-sans truncate">{log.employee_name}</p>
-                          <p className="text-[10px] text-ink-400 font-sans">{log.employee_code}</p>
-                        </div>
-                      </div>
-                      <Badge color="gray">{log.punch_in_time}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* Audit trail */}
-            <Card>
-              <div className="px-5 pt-5 pb-2">
-                <SectionLabel icon={<Layers className="w-3.5 h-3.5" />}>System Audit Trail</SectionLabel>
-              </div>
-              <Divider />
-              {systemLogs.length === 0 ? (
-                <p className="px-5 py-8 text-center text-sm text-ink-400 font-sans italic">No audit events logged yet.</p>
-              ) : (
-                <div className="divide-y divide-[var(--border-subtle)] max-h-72 overflow-y-auto">
-                  {systemLogs.map((log) => (
-                    <div key={log.id} className="px-5 py-3 flex flex-col sm:flex-row sm:justify-between gap-1 hover:bg-[var(--surface-card-hover)] transition-colors">
-                      <p className="text-sm text-ink-900 font-sans">
-                        <span className="font-semibold text-ink-900">[{log.event_type || 'SYSTEM'}]</span>{' '}
-                        {log.description}
-                      </p>
-                      <span className="text-[11px] text-ink-400 font-sans tabular-nums shrink-0">
-                        {new Date(log.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
-        )}
-
-      </main>
-
-      {/* ── Add Employee drawer ── */}
-      {addEmployeeOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-brand/40 backdrop-blur-sm" onClick={() => setAddEmployeeOpen(false)} />
-          <div className="relative w-full max-w-md h-full bg-[var(--surface-card)] shadow-xl flex flex-col animate-in slide-in-from-right duration-200">
-            <div className="px-5 py-4 flex items-center justify-between border-b border-[var(--border-subtle)] shrink-0">
-              <div>
-                <h3 className="text-sm font-semibold text-ink-900 font-sans">Onboard Employee</h3>
-                <p className="text-[11px] text-ink-400 font-sans">Add a new member to your workspace.</p>
-              </div>
-              <button onClick={() => setAddEmployeeOpen(false)} className="p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleOnboardSubmit} className="flex-1 overflow-y-auto px-5 py-5 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div><FormLabel required>Emp Code</FormLabel><Input required value={empCodeInput} onChange={e => setEmpCodeInput(e.target.value)} placeholder="HRB-102" /></div>
-                <div><FormLabel required>Full Name</FormLabel><Input required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Liam Sterling" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><FormLabel required>Email</FormLabel><Input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="name@co.com" /></div>
-                <div><FormLabel>Phone</FormLabel><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91..." /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><FormLabel>Designation</FormLabel><Input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Engineer" /></div>
-                <div><FormLabel>Department</FormLabel><Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="Engineering" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><FormLabel required>Joining Date</FormLabel><Input type="date" required value={joiningDate} onChange={e => setJoiningDate(e.target.value)} /></div>
-                <div><FormLabel>Gross Salary</FormLabel><Input type="number" value={monthlySalary} onChange={e => setMonthlySalary(e.target.value)} placeholder="₹ Monthly" /></div>
-              </div>
-
-              {/* Banking */}
-              <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2">
-                <SectionLabel>Banking Details</SectionLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="Account No." />
-                  <Input value={ifscCode} onChange={e => setIfscCode(e.target.value)} placeholder="IFSC Code" />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {submitting ? 'Adding employee…' : 'Onboard Employee'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Edit employee modal ── */}
-      {editingEmployee && (
-        <div className="fixed inset-0 z-50 bg-brand/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-xl">
-            <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-ink-900">Edit Employee Profile</h3>
-              <button onClick={() => setEditingEmployee(null)} className="p-1.5 rounded-lg text-ink-400 hover:text-ink-900 hover:bg-[var(--surface-card-hover)] transition-colors cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <Divider />
-            <form onSubmit={handleSaveEdit} className="px-5 py-4 space-y-3.5">
-              <div><FormLabel required>Full Name</FormLabel><Input required value={editName} onChange={e => setEditName(e.target.value)} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><FormLabel>Designation</FormLabel><Input value={editDesignation} onChange={e => setEditDesignation(e.target.value)} /></div>
-                <div><FormLabel>Department</FormLabel><Input value={editDepartment} onChange={e => setEditDepartment(e.target.value)} /></div>
-              </div>
-              <div><FormLabel>Monthly Salary (₹)</FormLabel><Input type="number" value={editSalary} onChange={e => setEditSalary(e.target.value)} /></div>
-              <div className="bg-[var(--surface-card-hover)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2">
-                <SectionLabel>Banking Details</SectionLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input value={editBankAccount} onChange={e => setEditBankAccount(e.target.value)} placeholder="Account No." />
-                  <Input value={editIfscCode} onChange={e => setEditIfscCode(e.target.value)} placeholder="IFSC Code" />
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-brand hover:bg-brand-hover text-white text-xs font-sans font-semibold py-2.5 rounded-lg transition-colors cursor-pointer">
-                Save Changes
-              </button>
-            </form>
-          </Card>
-        </div>
-      )}
-
     </div>
   );
 }
