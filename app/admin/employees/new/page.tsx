@@ -1,337 +1,453 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, UserCheck, Palmtree, Building2, UserPlus, Plus, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Loader2, User, Briefcase, IndianRupee, Landmark, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useEmployees } from '@/lib/employees/useEmployees';
-import { computeQuickFilters, applyQuickFilter, type QuickFilterKey } from '@/lib/employees/quickFilters';
-import { exportEmployeesToCsv } from '@/lib/employees/exportCsv';
-import { getInitials } from '@/lib/employees/format';
-import type { Employee, StatusFilter } from '@/lib/employees/types';
 
-import EmployeesPageHeader from '@/components/employees/EmployeesPageHeader';
-import EmployeeMetricCard from '@/components/employees/EmployeeMetricCard';
-import EmployeeFilters from '@/components/employees/EmployeeFilters';
-import EmployeeStatusTabs from '@/components/employees/EmployeeStatusTabs';
-import EmployeeTable from '@/components/employees/EmployeeTable';
-import EmployeePagination from '@/components/employees/EmployeePagination';
-import EmployeeEmptyState from '@/components/employees/EmployeeEmptyState';
-import EmployeeOverviewDonut from '@/components/employees/EmployeeOverviewDonut';
-import QuickFilters from '@/components/employees/QuickFilters';
-import DepartmentSummary from '@/components/employees/DepartmentSummary';
+/* ─────────────────────────────────────────────
+   Add Employee — real onboarding form, backed by the actual
+   `employees` table schema (verified against the live Supabase
+   project). Required-in-db columns with no default are marked *:
+   full_name, phone_number, department, designation, monthly_salary,
+   joining_date. Everything else is optional and left null if unset.
+───────────────────────────────────────────── */
 
-export default function EmployeesPage() {
+const EMPLOYMENT_TYPES = ['Full-Time', 'Part-Time', 'Contract', 'Intern'];
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function generateEmployeeCode(companyPrefix: string) {
+  const rand = Math.floor(100000 + Math.random() * 900000);
+  return `${companyPrefix}-${rand}`;
+}
+
+interface FormState {
+  full_name: string;
+  phone_number: string;
+  email: string;
+  date_of_birth: string;
+  emergency_contact: string;
+  employee_code: string;
+  department: string;
+  designation: string;
+  employment_type: string;
+  joining_date: string;
+  probation_end_date: string;
+  monthly_salary: string;
+  bank_name: string;
+  account_number: string;
+  ifsc_code: string;
+  upi_id: string;
+}
+
+const INITIAL_STATE: FormState = {
+  full_name: '',
+  phone_number: '',
+  email: '',
+  date_of_birth: '',
+  emergency_contact: '',
+  employee_code: '',
+  department: '',
+  designation: '',
+  employment_type: 'Full-Time',
+  joining_date: todayISO(),
+  probation_end_date: '',
+  monthly_salary: '',
+  bank_name: '',
+  account_number: '',
+  ifsc_code: '',
+  upi_id: '',
+};
+
+const REQUIRED_FIELDS: (keyof FormState)[] = [
+  'full_name',
+  'phone_number',
+  'department',
+  'designation',
+  'joining_date',
+  'monthly_salary',
+];
+
+const inputClass =
+  'w-full px-3.5 py-2.5 text-sm font-sans text-ink-900 bg-surface-card border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand placeholder:text-ink-400';
+const labelClass = 'text-xs font-sans font-medium text-ink-600 block mb-1.5';
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <span className={labelClass}>
+        {label} {required && <span className="text-status-danger">*</span>}
+      </span>
+      {children}
+      {error && <p className="text-[11px] text-status-danger font-sans mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function SectionCard({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-surface-card border border-border-subtle rounded-xl p-5 md:p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="w-8 h-8 rounded-lg bg-brand-subtle text-brand flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4" />
+        </span>
+        <h3 className="text-sm font-semibold text-ink-900 font-sans">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export default function AddEmployeePage() {
   const router = useRouter();
 
-  // ── Workspace identity (mirrors the pattern in app layout.tsx) ──
-  const [adminName, setAdminName] = useState('Administrator');
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyPrefix, setCompanyPrefix] = useState('EMP');
+  const [identityLoading, setIdentityLoading] = useState(true);
+
+  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [showBankDetails, setShowBankDetails] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadIdentity() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, company_id')
-        .eq('id', user.id)
-        .single();
-      if (profile?.full_name) setAdminName(profile.full_name);
-      if (profile?.company_id) setCompanyId(profile.company_id);
+      if (!user) {
+        setIdentityLoading(false);
+        return;
+      }
+      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single();
+      if (profile?.company_id) {
+        setCompanyId(profile.company_id);
+        const { data: company } = await supabase.from('companies').select('name').eq('id', profile.company_id).single();
+        if (company?.name) {
+          const initials = company.name
+            .split(' ')
+            .map((w: string) => w[0])
+            .filter(Boolean)
+            .slice(0, 3)
+            .join('')
+            .toUpperCase();
+          setCompanyPrefix(initials || 'EMP');
+        }
+      }
+      setIdentityLoading(false);
     }
     loadIdentity();
   }, []);
 
-  const { employees, loading, error, metrics, refetch } = useEmployees(companyId);
+  function setField<K extends keyof FormState>(key: K, value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
 
-  // ── Filter / search / tab / pagination state ──
-  const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState('All Departments');
-  const [employmentType, setEmploymentType] = useState('All Types');
-  const [statusTab, setStatusTab] = useState<StatusFilter>('all');
-  const [quickFilterKey, setQuickFilterKey] = useState<QuickFilterKey | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  function validate(): boolean {
+    const next: Partial<Record<keyof FormState, string>> = {};
+    REQUIRED_FIELDS.forEach((field) => {
+      if (!form[field] || !form[field].trim()) next[field] = 'This field is required';
+    });
+    if (form.monthly_salary && (isNaN(Number(form.monthly_salary)) || Number(form.monthly_salary) < 0)) {
+      next.monthly_salary = 'Enter a valid salary amount';
+    }
+    if (form.phone_number && !/^\+?[0-9\s-]{7,15}$/.test(form.phone_number.trim())) {
+      next.phone_number = 'Enter a valid phone number';
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      next.email = 'Enter a valid email address';
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }
 
-  const departmentOptions = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))).sort(),
-    [employees]
-  );
-  const employmentTypeOptions = useMemo(
-    () => Array.from(new Set(employees.map((e) => e.employment_type).filter(Boolean))).sort() as string[],
-    [employees]
-  );
-  const quickFilterItems = useMemo(() => computeQuickFilters(employees), [employees]);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitError(null);
 
-  const filteredEmployees = useMemo(() => {
-    let result: Employee[] = employees;
+    if (!companyId) {
+      setSubmitError("Couldn't determine your company. Try refreshing the page.");
+      return;
+    }
+    if (!validate()) return;
 
-    if (quickFilterKey) result = applyQuickFilter(result, quickFilterKey);
-    if (statusTab !== 'all') result = result.filter((e) => e.status === statusTab);
-    if (department !== 'All Departments') result = result.filter((e) => e.department === department);
-    if (employmentType !== 'All Types') result = result.filter((e) => e.employment_type === employmentType);
+    setSubmitting(true);
 
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter(
-        (e) =>
-          e.full_name.toLowerCase().includes(q) ||
-          e.email.toLowerCase().includes(q) ||
-          e.employee_code.toLowerCase().includes(q) ||
-          (e.phone ?? '').toLowerCase().includes(q)
-      );
+    const payload = {
+      company_id: companyId,
+      full_name: form.full_name.trim(),
+      phone_number: form.phone_number.trim(),
+      email: form.email.trim() || null,
+      date_of_birth: form.date_of_birth || null,
+      emergency_contact: form.emergency_contact.trim() || null,
+      employee_code: form.employee_code.trim() || generateEmployeeCode(companyPrefix),
+      department: form.department.trim(),
+      designation: form.designation.trim(),
+      employment_type: form.employment_type,
+      status: 'Active',
+      joining_date: form.joining_date,
+      probation_end_date: form.probation_end_date || null,
+      monthly_salary: Number(form.monthly_salary),
+      bank_name: form.bank_name.trim() || null,
+      account_number: form.account_number.trim() || null,
+      bank_account_number: form.account_number.trim() || null,
+      ifsc_code: form.ifsc_code.trim() || null,
+      upi_id: form.upi_id.trim() || null,
+    };
+
+    const { error } = await supabase.from('employees').insert(payload);
+
+    setSubmitting(false);
+
+    if (error) {
+      setSubmitError(error.message);
+      return;
     }
 
-    return result;
-  }, [employees, quickFilterKey, statusTab, department, employmentType, search]);
-
-  // Reset to page 1 whenever the result set changes shape
-  useEffect(() => {
-    setPage(1);
-  }, [search, department, employmentType, statusTab, quickFilterKey, pageSize]);
-
-  const paginatedEmployees = useMemo(() => {
-    const startIdx = (page - 1) * pageSize;
-    return filteredEmployees.slice(startIdx, startIdx + pageSize);
-  }, [filteredEmployees, page, pageSize]);
-
-  const statusCounts = {
-    all: employees.length,
-    active: metrics.active,
-    on_leave: metrics.onLeave,
-    inactive: metrics.inactive,
-  };
-
-  const hasAnyFilterApplied =
-    search.trim() !== '' ||
-    department !== 'All Departments' ||
-    employmentType !== 'All Types' ||
-    statusTab !== 'all' ||
-    quickFilterKey !== null;
-
-  function clearAllFilters() {
-    setSearch('');
-    setDepartment('All Departments');
-    setEmploymentType('All Types');
-    setStatusTab('all');
-    setQuickFilterKey(null);
+    router.push('/admin');
   }
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelectAll() {
-    setSelectedIds((prev) => {
-      const allOnPageSelected = paginatedEmployees.every((e) => prev.has(e.id));
-      const next = new Set(prev);
-      if (allOnPageSelected) {
-        paginatedEmployees.forEach((e) => next.delete(e.id));
-      } else {
-        paginatedEmployees.forEach((e) => next.add(e.id));
-      }
-      return next;
-    });
-  }
-
-  // ── TODO: wire these to your existing onboarding / view / edit flows ──
-  // These intentionally do NOT invent a fake flow. Point them at whatever
-  // your app already uses today (a route or a modal component).
-  function handleAddEmployee() {
-    router.push('/admin/employees/new'); // TODO: replace with your real route/modal
-  }
-  function handleViewEmployee(employee: Employee) {
-    router.push(`/admin/employees/${employee.id}`); // TODO: replace with your real route/modal
-  }
-  function handleEditEmployee(employee: Employee) {
-    router.push(`/admin/employees/${employee.id}/edit`); // TODO: replace with your real route/modal
-  }
-  function handleExport() {
-    exportEmployeesToCsv(filteredEmployees, `employees-${new Date().toISOString().slice(0, 10)}.csv`);
-  }
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-  }
-
-  const adminInitials = getInitials(adminName) || 'A';
-  const showEmptyNoEmployees = !loading && employees.length === 0;
-  const showEmptyNoResults = !loading && employees.length > 0 && filteredEmployees.length === 0;
 
   return (
     <div className="min-h-screen">
-      <EmployeesPageHeader
-        adminName={adminName}
-        initials={adminInitials}
-        notificationCount={3}
-        onSignOut={handleSignOut}
-      />
-
-      <div className="px-4 md:px-8 pb-10 space-y-6">
-        {/* Page title */}
-        <div className="flex flex-wrap items-start justify-between gap-4 pt-2 md:pt-0">
-          <div>
-            <h2 className="text-2xl font-bold text-ink-900 font-sans">Employees</h2>
-            <p className="text-sm text-ink-400 font-sans mt-1">
-              Manage your organization&rsquo;s employees and their information.
+      {/* Header */}
+      <header className="sticky top-0 z-20 bg-surface-card border-b border-border-subtle">
+        <div className="flex items-center gap-3 px-4 md:px-8 h-[76px]">
+          <button
+            onClick={() => router.push('/admin')}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-ink-600 hover:bg-surface-card-hover transition-colors cursor-pointer shrink-0"
+            aria-label="Back to Employees"
+          >
+            <ArrowLeft className="w-[18px] h-[18px]" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-ink-900 font-sans truncate">Add New Employee</h1>
+            <p className="text-xs text-ink-400 font-sans mt-0.5">
+              Employees <span className="mx-1 text-ink-400">›</span> <span className="text-ink-600">Add New Employee</span>
             </p>
           </div>
-          <div className="flex items-center">
-            <button
-              onClick={handleAddEmployee}
-              className="flex items-center gap-1.5 pl-4 pr-3 py-2.5 rounded-l-lg bg-brand text-white text-sm font-medium font-sans hover:bg-brand-hover transition-colors cursor-pointer border-r border-white/20"
-            >
-              <Plus className="w-4 h-4" />
-              Add Employee
-            </button>
-            <button
-              onClick={handleAddEmployee}
-              className="px-2.5 py-2.5 rounded-r-lg bg-brand text-white hover:bg-brand-hover transition-colors cursor-pointer"
-              aria-label="More add options"
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </div>
         </div>
+      </header>
 
-        {error && (
+      <form onSubmit={handleSubmit} className="px-4 md:px-8 py-6 pb-16 max-w-3xl mx-auto space-y-5">
+        {submitError && (
           <div className="bg-status-danger-bg border border-status-danger/20 text-status-danger text-sm font-sans rounded-lg px-4 py-3">
-            Couldn&rsquo;t load employees: {error}
+            Couldn&rsquo;t save this employee: {submitError}
           </div>
         )}
 
-        {/* Summary metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          <EmployeeMetricCard
-            icon={Users}
-            iconColor="#1D4ED8"
-            iconBg="#EFF6FF"
-            label="Total Employees"
-            value={metrics.total}
-            supportingText={metrics.newHiresThisMonth > 0 ? `↑ ${metrics.newHiresThisMonth} this month` : undefined}
-            supportingTone="positive"
-            loading={loading}
-          />
-          <EmployeeMetricCard
-            icon={UserCheck}
-            iconColor="#15803D"
-            iconBg="#F0FDF4"
-            label="Active Employees"
-            value={metrics.active}
-            supportingText={metrics.total > 0 ? `${((metrics.active / metrics.total) * 100).toFixed(1)}% of total` : undefined}
-            loading={loading}
-          />
-          <EmployeeMetricCard
-            icon={Palmtree}
-            iconColor="#C2410C"
-            iconBg="#FFF7ED"
-            label="On Leave"
-            value={metrics.onLeave}
-            supportingText="Today"
-            loading={loading}
-          />
-          <EmployeeMetricCard
-            icon={Building2}
-            iconColor="#6D28D9"
-            iconBg="#F5F3FF"
-            label="Departments"
-            value={metrics.departmentCount}
-            supportingText="Across organization"
-            loading={loading}
-          />
-          <EmployeeMetricCard
-            icon={UserPlus}
-            iconColor="#1D4ED8"
-            iconBg="#EFF6FF"
-            label="New Hires (This Month)"
-            value={metrics.newHiresThisMonth}
-            supportingText={
-              metrics.newHiresThisMonth >= metrics.newHiresLastMonth
-                ? `↑ ${metrics.newHiresThisMonth - metrics.newHiresLastMonth} vs last month`
-                : `↓ ${metrics.newHiresLastMonth - metrics.newHiresThisMonth} vs last month`
-            }
-            supportingTone={metrics.newHiresThisMonth >= metrics.newHiresLastMonth ? 'positive' : 'neutral'}
-            loading={loading}
-          />
-        </div>
-
-        {/* Main content: table + right rail */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
-          <div className="space-y-4 min-w-0">
-            <EmployeeFilters
-              searchValue={search}
-              onSearchChange={setSearch}
-              departments={departmentOptions}
-              department={department}
-              onDepartmentChange={setDepartment}
-              employmentTypes={employmentTypeOptions}
-              employmentType={employmentType}
-              onEmploymentTypeChange={setEmploymentType}
-              onExport={handleExport}
-              onMoreFilters={() => {
-                /* TODO: hook up an advanced filters panel if/when you need one */
-              }}
-            />
-
-            <div className="bg-surface-card border border-border-subtle rounded-xl overflow-hidden">
-              <EmployeeStatusTabs active={statusTab} onChange={setStatusTab} counts={statusCounts} />
-
-              {loading ? (
-                <div className="py-16 text-center text-sm text-ink-400 font-sans">Loading employees…</div>
-              ) : showEmptyNoEmployees ? (
-                <EmployeeEmptyState variant="no-employees" onAddEmployee={handleAddEmployee} />
-              ) : showEmptyNoResults ? (
-                <EmployeeEmptyState
-                  variant="no-results"
-                  onAddEmployee={handleAddEmployee}
-                  onClearFilters={hasAnyFilterApplied ? clearAllFilters : undefined}
-                />
-              ) : (
-                <>
-                  <EmployeeTable
-                    employees={paginatedEmployees}
-                    selectedIds={selectedIds}
-                    onToggleSelect={toggleSelect}
-                    onToggleSelectAll={toggleSelectAll}
-                    onView={handleViewEmployee}
-                    onEdit={handleEditEmployee}
-                  />
-                  <EmployeePagination
-                    page={page}
-                    pageSize={pageSize}
-                    total={filteredEmployees.length}
-                    onPageChange={setPage}
-                    onPageSizeChange={setPageSize}
-                  />
-                </>
-              )}
-            </div>
+        <SectionCard icon={User} title="Personal Information">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Full Name" required error={errors.full_name}>
+              <input
+                value={form.full_name}
+                onChange={(e) => setField('full_name', e.target.value)}
+                placeholder="e.g. Arjun Singh"
+                className={`${inputClass} ${errors.full_name ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+            <Field label="Phone Number" required error={errors.phone_number}>
+              <input
+                value={form.phone_number}
+                onChange={(e) => setField('phone_number', e.target.value)}
+                placeholder="e.g. 98765 43210"
+                className={`${inputClass} ${errors.phone_number ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+            <Field label="Email" error={errors.email}>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setField('email', e.target.value)}
+                placeholder="name@company.com"
+                className={`${inputClass} ${errors.email ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+            <Field label="Date of Birth">
+              <input
+                type="date"
+                value={form.date_of_birth}
+                onChange={(e) => setField('date_of_birth', e.target.value)}
+                className={`${inputClass} border-border-subtle`}
+              />
+            </Field>
+            <Field label="Emergency Contact">
+              <input
+                value={form.emergency_contact}
+                onChange={(e) => setField('emergency_contact', e.target.value)}
+                placeholder="Name and phone number"
+                className={`${inputClass} border-border-subtle`}
+              />
+            </Field>
           </div>
+        </SectionCard>
 
-          {/* Right rail */}
-          {!loading && employees.length > 0 && (
-            <div className="space-y-4">
-              <div className="bg-surface-card border border-border-subtle rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-ink-900 font-sans mb-4">Employee Overview</h3>
-                <EmployeeOverviewDonut active={metrics.active} onLeave={metrics.onLeave} inactive={metrics.inactive} />
+        <SectionCard icon={Briefcase} title="Employment Details">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Employee ID">
+              <input
+                value={form.employee_code}
+                onChange={(e) => setField('employee_code', e.target.value)}
+                placeholder="Auto-generated if left blank"
+                className={`${inputClass} border-border-subtle`}
+              />
+            </Field>
+            <Field label="Employment Type" required>
+              <select
+                value={form.employment_type}
+                onChange={(e) => setField('employment_type', e.target.value)}
+                className={`${inputClass} border-border-subtle cursor-pointer`}
+              >
+                {EMPLOYMENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Department" required error={errors.department}>
+              <input
+                value={form.department}
+                onChange={(e) => setField('department', e.target.value)}
+                placeholder="e.g. Engineering"
+                className={`${inputClass} ${errors.department ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+            <Field label="Designation" required error={errors.designation}>
+              <input
+                value={form.designation}
+                onChange={(e) => setField('designation', e.target.value)}
+                placeholder="e.g. Software Engineer"
+                className={`${inputClass} ${errors.designation ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+            <Field label="Joining Date" required error={errors.joining_date}>
+              <input
+                type="date"
+                value={form.joining_date}
+                onChange={(e) => setField('joining_date', e.target.value)}
+                className={`${inputClass} ${errors.joining_date ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+            <Field label="Probation End Date">
+              <input
+                type="date"
+                value={form.probation_end_date}
+                onChange={(e) => setField('probation_end_date', e.target.value)}
+                className={`${inputClass} border-border-subtle`}
+              />
+            </Field>
+          </div>
+        </SectionCard>
+
+        <SectionCard icon={IndianRupee} title="Compensation">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Monthly Salary (₹)" required error={errors.monthly_salary}>
+              <input
+                inputMode="numeric"
+                value={form.monthly_salary}
+                onChange={(e) => setField('monthly_salary', e.target.value)}
+                placeholder="e.g. 45000"
+                className={`${inputClass} ${errors.monthly_salary ? 'border-status-danger' : 'border-border-subtle'}`}
+              />
+            </Field>
+          </div>
+        </SectionCard>
+
+        {/* Bank details — optional, collapsed by default */}
+        <div className="bg-surface-card border border-border-subtle rounded-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowBankDetails((v) => !v)}
+            className="w-full flex items-center justify-between p-5 md:p-6 cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-brand-subtle text-brand flex items-center justify-center shrink-0">
+                <Landmark className="w-4 h-4" />
+              </span>
+              <div className="text-left">
+                <h3 className="text-sm font-semibold text-ink-900 font-sans">Bank Details</h3>
+                <p className="text-xs text-ink-400 font-sans">Optional — can be added later</p>
               </div>
-
-              <QuickFilters items={quickFilterItems} activeKey={quickFilterKey} onSelect={(key) => setQuickFilterKey((prev) => (prev === key ? null : key))} />
-
-              <DepartmentSummary departments={metrics.departmentBreakdown} />
+            </div>
+            {showBankDetails ? <ChevronUp className="w-4 h-4 text-ink-400" /> : <ChevronDown className="w-4 h-4 text-ink-400" />}
+          </button>
+          {showBankDetails && (
+            <div className="px-5 md:px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border-subtle pt-4">
+              <Field label="Bank Name">
+                <input
+                  value={form.bank_name}
+                  onChange={(e) => setField('bank_name', e.target.value)}
+                  className={`${inputClass} border-border-subtle`}
+                />
+              </Field>
+              <Field label="Account Number">
+                <input
+                  value={form.account_number}
+                  onChange={(e) => setField('account_number', e.target.value)}
+                  className={`${inputClass} border-border-subtle font-mono`}
+                />
+              </Field>
+              <Field label="IFSC Code">
+                <input
+                  value={form.ifsc_code}
+                  onChange={(e) => setField('ifsc_code', e.target.value.toUpperCase())}
+                  className={`${inputClass} border-border-subtle font-mono`}
+                />
+              </Field>
+              <Field label="UPI ID">
+                <input
+                  value={form.upi_id}
+                  onChange={(e) => setField('upi_id', e.target.value)}
+                  placeholder="name@bank"
+                  className={`${inputClass} border-border-subtle`}
+                />
+              </Field>
             </div>
           )}
         </div>
-      </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => router.push('/admin')}
+            className="px-4 py-2.5 rounded-lg text-sm font-sans font-medium text-ink-600 border border-border-subtle hover:bg-surface-card-hover transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || identityLoading}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-sans font-semibold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {submitting ? 'Saving…' : 'Add Employee'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
