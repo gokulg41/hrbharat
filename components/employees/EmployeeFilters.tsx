@@ -11,11 +11,11 @@ interface EmployeeFiltersProps {
   employmentTypes: string[];
   employmentType: string;
   onEmploymentTypeChange: (value: string) => void;
-  status: StatusFilter;
-  onStatusChange: (value: StatusFilter) => void;
+  status?: StatusFilter;
+  onStatusChange?: (value: StatusFilter) => void;
   onExport: () => void;
   onMoreFilters: () => void;
-  onFilters: () => void;
+  onFilters?: () => void;
 }
 
 const STATUS_OPTIONS: { label: string; value: StatusFilter }[] = [
@@ -34,7 +34,7 @@ export default function EmployeeFilters({
   employmentTypes,
   employmentType,
   onEmploymentTypeChange,
-  status,
+  status = 'all',
   onStatusChange,
   onExport,
   onMoreFilters,
@@ -70,15 +70,17 @@ export default function EmployeeFilters({
             options={['All Types', ...employmentTypes]}
           />
         )}
-        <FilterSelect
-          label="Status"
-          value={STATUS_OPTIONS.find((s) => s.value === status)?.label ?? 'All Status'}
-          onChange={(label) => {
-            const match = STATUS_OPTIONS.find((s) => s.label === label);
-            onStatusChange(match ? match.value : 'all');
-          }}
-          options={STATUS_OPTIONS.map((s) => s.label)}
-        />
+        {onStatusChange && (
+          <FilterSelect
+            label="Status"
+            value={STATUS_OPTIONS.find((s) => s.value === status)?.label ?? 'All Status'}
+            onChange={(label) => {
+              const match = STATUS_OPTIONS.find((s) => s.label === label);
+              onStatusChange(match ? match.value : 'all');
+            }}
+            options={STATUS_OPTIONS.map((s) => s.label)}
+          />
+        )}
 
         <button
           onClick={onMoreFilters}
@@ -98,13 +100,15 @@ export default function EmployeeFilters({
           <Download className="w-3.5 h-3.5" />
           Export
         </button>
-        <button
-          onClick={onFilters}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border-subtle text-sm font-medium font-sans text-ink-600 hover:bg-surface-card-hover hover:border-border-hover transition-colors cursor-pointer"
-        >
-          <Filter className="w-3.5 h-3.5" />
-          Filters
-        </button>
+        {onFilters && (
+          <button
+            onClick={onFilters}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border-subtle text-sm font-medium font-sans text-ink-600 hover:bg-surface-card-hover hover:border-border-hover transition-colors cursor-pointer"
+          >
+            <Filter className="w-3.5 h-3.5" />
+            Filters
+          </button>
+        )}
       </div>
     </div>
   );
