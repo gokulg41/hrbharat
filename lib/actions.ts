@@ -26,6 +26,12 @@ export async function onboardEmployeeAction(data: {
   joiningDate: string;
   isAdmin?: boolean;
   managerId?: string | null;
+  dateOfBirth?: string | null;
+  emergencyContact?: string | null;
+  employmentType?: string | null;
+  probationEndDate?: string | null;
+  bankName?: string | null;
+  upiId?: string | null;
 }) {
   try {
     console.log("STEP 1: Starting employee onboarding");
@@ -132,6 +138,13 @@ export async function onboardEmployeeAction(data: {
             data.ifscCode?.toUpperCase().trim() || null,
 
           joining_date: data.joiningDate,
+
+          date_of_birth: data.dateOfBirth || null,
+          emergency_contact: data.emergencyContact?.trim() || null,
+          employment_type: data.employmentType || null,
+          probation_end_date: data.probationEndDate || null,
+          bank_name: data.bankName?.trim() || null,
+          upi_id: data.upiId?.trim() || null,
 
           sick_leave_balance: 12,
           casual_leave_balance: 12,

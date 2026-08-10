@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, User, Briefcase, IndianRupee, Landmark, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Loader2, User, Briefcase, IndianRupee, Landmark, ChevronDown, ChevronUp, CheckCircle2, Copy, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { onboardEmployeeAction } from '@/lib/actions';
 
 /* ─────────────────────────────────────────────
    Add Employee — real onboarding form, backed by the actual
@@ -65,6 +66,7 @@ const INITIAL_STATE: FormState = {
 const REQUIRED_FIELDS: (keyof FormState)[] = [
   'full_name',
   'phone_number',
+  'email',
   'department',
   'designation',
   'joining_date',
@@ -131,6 +133,13 @@ export default function AddEmployeePage() {
   const [showBankDetails, setShowBankDetails] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createdEmployee, setCreatedEmployee] = useState<{
+    fullName: string;
+    email: string;
+    employeeCode: string;
+    tempPassword: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function loadIdentity() {
@@ -196,38 +205,99 @@ export default function AddEmployeePage() {
 
     setSubmitting(true);
 
-    const payload = {
-      company_id: companyId,
-      full_name: form.full_name.trim(),
-      phone_number: form.phone_number.trim(),
-      email: form.email.trim() || null,
-      date_of_birth: form.date_of_birth || null,
-      emergency_contact: form.emergency_contact.trim() || null,
-      employee_code: form.employee_code.trim() || generateEmployeeCode(companyPrefix),
-      department: form.department.trim(),
-      designation: form.designation.trim(),
-      employment_type: form.employment_type,
-      status: 'Active',
-      joining_date: form.joining_date,
-      probation_end_date: form.probation_end_date || null,
-      monthly_salary: Number(form.monthly_salary),
-      bank_name: form.bank_name.trim() || null,
-      account_number: form.account_number.trim() || null,
-      bank_account_number: form.account_number.trim() || null,
-      ifsc_code: form.ifsc_code.trim() || null,
-      upi_id: form.upi_id.trim() || null,
-    };
+    const employeeCode = form.employee_code.trim() || generateEmployeeCode(companyPrefix);
 
-    const { error } = await supabase.from('employees').insert(payload);
+    const result = await onboardEmployeeAction({
+      companyId,
+      fullName: form.full_name.trim(),
+      email: form.email.trim(),
+      phone: form.phone_number.trim(),
+      designation: form.designation.trim(),
+      department: form.department.trim(),
+      monthlySalary: Number(form.monthly_salary),
+      employeeCode,
+      bankAccount: form.account_number.trim() || null,
+      ifscCode: form.ifsc_code.trim() || null,
+      joiningDate: form.joining_date,
+      dateOfBirth: form.date_of_birth || null,
+      emergencyContact: form.emergency_contact.trim() || null,
+      employmentType: form.employment_type,
+      probationEndDate: form.probation_end_date || null,
+      bankName: form.bank_name.trim() || null,
+      upiId: form.upi_id.trim() || null,
+    });
 
     setSubmitting(false);
 
-    if (error) {
-      setSubmitError(error.message);
+    if (!result.success) {
+      setSubmitError(result.error || 'Something went wrong while onboarding this employee.');
       return;
     }
 
-    router.push('/admin');
+    setCreatedEmployee({
+      fullName: form.full_name.trim(),
+      email: form.email.trim().toLowerCase(),
+      employeeCode: employeeCode.toUpperCase(),
+      tempPassword: `Temp@${employeeCode.trim()}`,
+    });
+  }
+
+  function handleCopyCredentials() {
+    if (!createdEmployee) return;
+    const text = `Email: ${createdEmployee.email}\nTemporary Password: ${createdEmployee.tempPassword}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (createdEmployee) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-surface-card border border-border-subtle rounded-xl p-6 md:p-8 space-y-5">
+          <div className="flex flex-col items-center text-center gap-2">
+            <span className="w-12 h-12 rounded-full bg-status-success-bg text-status-success flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </span>
+            <h2 className="text-lg font-bold text-ink-900 font-sans">Employee added</h2>
+            <p className="text-sm text-ink-400 font-sans">
+              {createdEmployee.fullName} ({createdEmployee.employeeCode}) can now sign in with the credentials below.
+            </p>
+          </div>
+
+          <div className="bg-status-warning-bg border border-status-warning/20 rounded-lg p-4 space-y-2.5">
+            <div>
+              <p className="text-[11px] font-sans font-medium text-ink-600">Login Email</p>
+              <p className="text-sm font-mono text-ink-900 break-all">{createdEmployee.email}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-sans font-medium text-ink-600">Temporary Password</p>
+              <p className="text-sm font-mono text-ink-900">{createdEmployee.tempPassword}</p>
+            </div>
+            <p className="text-[11px] font-sans text-status-warning pt-1">
+              Share this securely — the employee will be asked to set a new password on first login.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleCopyCredentials}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-sans font-medium text-ink-600 border border-border-subtle hover:bg-surface-card-hover transition-colors cursor-pointer"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? 'Copied' : 'Copy Credentials'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/admin')}
+              className="flex-1 px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-sans font-semibold transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -276,7 +346,7 @@ export default function AddEmployeePage() {
                 className={`${inputClass} ${errors.phone_number ? 'border-status-danger' : 'border-border-subtle'}`}
               />
             </Field>
-            <Field label="Email" error={errors.email}>
+            <Field label="Email" required error={errors.email}>
               <input
                 type="email"
                 value={form.email}
