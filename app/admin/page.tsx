@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, UserCheck, Palmtree, Share2, CalendarPlus, Plus, ChevronDown } from 'lucide-react';
+import { Users, UserCheck, Palmtree, Share2, CalendarPlus, Plus, ChevronDown, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useEmployees } from '@/lib/employees/useEmployees';
 import { computeQuickFilters, applyQuickFilter, type QuickFilterKey } from '@/lib/employees/quickFilters';
@@ -56,6 +56,7 @@ export default function EmployeesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const departmentOptions = useMemo(
     () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))).sort(),
@@ -80,9 +81,9 @@ export default function EmployeesPage() {
       result = result.filter(
         (e) =>
           e.full_name.toLowerCase().includes(q) ||
-          e.email.toLowerCase().includes(q) ||
+          (e.email ?? '').toLowerCase().includes(q) ||
           e.employee_code.toLowerCase().includes(q) ||
-          (e.phone ?? '').toLowerCase().includes(q)
+          (e.phone_number ?? e.phone ?? '').toLowerCase().includes(q)
       );
     }
 
@@ -174,6 +175,8 @@ export default function EmployeesPage() {
         initials={adminInitials}
         notificationCount={3}
         onSignOut={handleSignOut}
+        searchValue={search}
+        onSearchChange={setSearch}
       />
 
       <div className="px-4 md:px-8 pb-10 space-y-6">
@@ -185,7 +188,7 @@ export default function EmployeesPage() {
               Manage your organization&rsquo;s employees and their information.
             </p>
           </div>
-          <div className="flex items-center">
+          <div className="relative flex items-center">
             <button
               onClick={handleAddEmployee}
               className="flex items-center gap-1.5 pl-4 pr-3 py-2.5 rounded-l-lg bg-brand text-white text-sm font-medium font-sans hover:bg-brand-hover transition-colors cursor-pointer border-r border-white/20"
@@ -194,12 +197,39 @@ export default function EmployeesPage() {
               Add Employee
             </button>
             <button
-              onClick={handleAddEmployee}
+              onClick={() => setAddMenuOpen((v) => !v)}
               className="px-2.5 py-2.5 rounded-r-lg bg-brand text-white hover:bg-brand-hover transition-colors cursor-pointer"
               aria-label="More add options"
             >
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className={`w-4 h-4 transition-transform ${addMenuOpen ? 'rotate-180' : ''}`} />
             </button>
+
+            {addMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setAddMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-40 w-52 bg-surface-card border border-border-subtle rounded-lg shadow-card overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setAddMenuOpen(false);
+                      handleAddEmployee();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-sans text-ink-900 hover:bg-surface-card-hover cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-brand" /> Add Employee
+                  </button>
+                  {/* TODO: wire to your existing bulk-import flow once it exists.
+                      Left disabled rather than invented, per the "don't fake
+                      functionality" requirement. */}
+                  <button
+                    disabled
+                    title="Coming soon"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-sans text-ink-400 opacity-60 cursor-not-allowed"
+                  >
+                    <Upload className="w-4 h-4" /> Import Employees
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

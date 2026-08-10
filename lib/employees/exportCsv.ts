@@ -1,29 +1,31 @@
 import type { Employee } from './types';
+import { getEmployeeStatus, getEmploymentType } from './format';
 
-export function exportEmployeesToCsv(employees: Employee[], filename = 'employees.csv') {
-  const headers = ['Employee ID', 'Name', 'Email', 'Department', 'Designation', 'Status', 'Join Date', 'Salary'];
-  const rows = employees.map((e) => [
-    e.employee_code,
-    e.full_name,
-    e.email,
-    e.department,
-    e.designation,
-    e.status,
-    e.join_date,
-    String(e.salary),
-  ]);
-
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-
+export function exportEmployeesToCsv(employees: Employee[], filename: string) {
+  const headers = ['Employee ID', 'Name', 'Email', 'Department', 'Designation', 'Status', 'Employment Type', 'Join Date', 'Monthly Salary'];
+  const lines = employees.map((e) =>
+    [
+      e.employee_code || '',
+      e.full_name || '',
+      e.email || '',
+      e.department || 'Operations',
+      e.designation || 'Staff',
+      getEmployeeStatus(e),
+      getEmploymentType(e),
+      e.joining_date ? new Date(e.joining_date).toISOString().split('T')[0] : '',
+      Number(e.monthly_salary) || 0,
+    ]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  const csv = [headers.join(','), ...lines].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }

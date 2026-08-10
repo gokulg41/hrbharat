@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Employee, EmployeeMetrics } from './types';
+import type { DepartmentBreakdown, Employee, EmployeeMetrics } from './types';
+import { getEmployeeStatus } from './format';
 
 interface UseEmployeesResult {
   employees: Employee[];
@@ -18,9 +19,9 @@ const EMPTY_METRICS: EmployeeMetrics = {
   onLeave: 0,
   inactive: 0,
   departmentCount: 0,
+  departmentBreakdown: [],
   newHiresThisMonth: 0,
   newHiresLastMonth: 0,
-  departmentBreakdown: [],
 };
 
 export function useEmployees(companyId: string | null): UseEmployeesResult {
@@ -30,25 +31,23 @@ export function useEmployees(companyId: string | null): UseEmployeesResult {
 
   const fetchEmployees = useCallback(async () => {
     if (!companyId) {
-      setEmployees([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-
-    // NOTE: swap 'employees' for your real table name if different.
+    // Same query shape already used in tabs-view.tsx: '*' plus the shift join.
     const { data, error: fetchError } = await supabase
       .from('employees')
-      .select('*')
+      .select('*, company_shifts(*)')
       .eq('company_id', companyId)
-      .order('join_date', { ascending: false });
+      .order('full_name', { ascending: true });
 
     if (fetchError) {
       setError(fetchError.message);
       setEmployees([]);
     } else {
-      setEmployees((data ?? []) as Employee[]);
+      setEmployees((data || []) as Employee[]);
     }
     setLoading(false);
   }, [companyId]);
@@ -61,38 +60,31 @@ export function useEmployees(companyId: string | null): UseEmployeesResult {
     if (employees.length === 0) return EMPTY_METRICS;
 
     const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    const lastMonthDate = new Date(thisYear, thisMonth - 1, 1);
-    const lastMonth = lastMonthDate.getMonth();
-    const lastMonthYear = lastMonthDate.getFullYear();
-
     let active = 0;
     let onLeave = 0;
     let inactive = 0;
+    const deptMap: Record<string, number> = {};
     let newHiresThisMonth = 0;
     let newHiresLastMonth = 0;
-    const deptMap = new Map<string, number>();
+    const lastMonthRef = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    for (const emp of employees) {
-      if (emp.status === 'active') active += 1;
-      else if (emp.status === 'on_leave') onLeave += 1;
-      else if (emp.status === 'inactive') inactive += 1;
+    employees.forEach((e) => {
+      const status = getEmployeeStatus(e);
+      if (status === 'active') active++;
+      else if (status === 'on_leave') onLeave++;
+      else inactive++;
 
-      if (emp.join_date) {
-        const joined = new Date(emp.join_date);
-        if (joined.getMonth() === thisMonth && joined.getFullYear() === thisYear) {
-          newHiresThisMonth += 1;
-        } else if (joined.getMonth() === lastMonth && joined.getFullYear() === lastMonthYear) {
-          newHiresLastMonth += 1;
-        }
+      const dept = e.department || 'Operations';
+      deptMap[dept] = (deptMap[dept] || 0) + 1;
+
+      if (e.joining_date) {
+        const d = new Date(e.joining_date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) newHiresThisMonth++;
+        if (d.getMonth() === lastMonthRef.getMonth() && d.getFullYear() === lastMonthRef.getFullYear()) newHiresLastMonth++;
       }
+    });
 
-      const dept = emp.department || 'Unassigned';
-      deptMap.set(dept, (deptMap.get(dept) ?? 0) + 1);
-    }
-
-    const departmentBreakdown = Array.from(deptMap.entries())
+    const departmentBreakdown: DepartmentBreakdown[] = Object.entries(deptMap)
       .map(([department, count]) => ({ department, count }))
       .sort((a, b) => b.count - a.count);
 
@@ -101,10 +93,10 @@ export function useEmployees(companyId: string | null): UseEmployeesResult {
       active,
       onLeave,
       inactive,
-      departmentCount: deptMap.size,
+      departmentCount: departmentBreakdown.length,
+      departmentBreakdown,
       newHiresThisMonth,
       newHiresLastMonth,
-      departmentBreakdown,
     };
   }, [employees]);
 

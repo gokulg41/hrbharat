@@ -1,39 +1,45 @@
-import React from 'react';
-import type { DepartmentCount } from '@/lib/employees/types';
+'use client';
+
+import React, { useState } from 'react';
+import type { DepartmentBreakdown } from '@/lib/employees/types';
 
 interface DepartmentSummaryProps {
-  departments: DepartmentCount[];
-  onViewAll?: () => void;
-  maxVisible?: number;
+  departments: DepartmentBreakdown[];
 }
 
-export default function DepartmentSummary({ departments, onViewAll, maxVisible = 6 }: DepartmentSummaryProps) {
-  if (departments.length === 0) return null;
+const VISIBLE_LIMIT = 6;
 
-  const visible = departments.slice(0, maxVisible);
-  const maxCount = Math.max(...departments.map((d) => d.count));
+export default function DepartmentSummary({ departments }: DepartmentSummaryProps) {
+  const [expanded, setExpanded] = useState(false);
+  const maxCount = departments.length > 0 ? departments[0].count : 1;
+  const visible = expanded ? departments : departments.slice(0, VISIBLE_LIMIT);
 
   return (
     <div className="bg-surface-card border border-border-subtle rounded-xl p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-ink-900 font-sans">Department Wise</h3>
-        {departments.length > maxVisible && onViewAll && (
-          <button onClick={onViewAll} className="text-xs font-medium font-sans text-brand hover:underline cursor-pointer">
-            View all
+        {departments.length > VISIBLE_LIMIT && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs font-sans font-semibold text-brand hover:text-brand-hover cursor-pointer"
+          >
+            {expanded ? 'Show less' : 'View all'}
           </button>
         )}
       </div>
       <div className="space-y-3">
-        {visible.map((dept) => (
-          <div key={dept.department} className="flex items-center gap-3">
-            <span className="text-xs font-medium font-sans text-ink-600 w-24 shrink-0 truncate">{dept.department}</span>
-            <div className="flex-1 h-1.5 rounded-full bg-surface-card-hover overflow-hidden">
+        {visible.map((d) => (
+          <div key={d.department}>
+            <div className="flex items-center justify-between text-xs font-sans mb-1.5">
+              <span className="text-ink-600 truncate">{d.department}</span>
+              <span className="text-ink-900 font-semibold tabular-nums">{d.count}</span>
+            </div>
+            <div className="w-full h-1.5 bg-surface-canvas rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-brand"
-                style={{ width: `${maxCount === 0 ? 0 : (dept.count / maxCount) * 100}%` }}
+                className="h-full bg-brand rounded-full"
+                style={{ width: `${Math.max(6, (d.count / maxCount) * 100)}%` }}
               />
             </div>
-            <span className="text-xs font-semibold font-sans text-ink-900 w-6 text-right shrink-0">{dept.count}</span>
           </div>
         ))}
       </div>

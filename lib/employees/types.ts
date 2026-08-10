@@ -1,41 +1,32 @@
-/**
- * ── Employees data model ─────────────────────────────────────────
- * This matches a typical `employees` table. Column names are the
- * ONE thing you must reconcile with your real Supabase schema —
- * see README_EMPLOYEES_PAGE.md for the exact SQL + mapping notes.
- *
- * Required columns (the page breaks without these):
- *   id, employee_code, full_name, email, department, designation,
- *   status, join_date, salary, company_id
- *
- * Optional columns (features degrade gracefully if absent):
- *   phone, date_of_birth, probation_end_date
- * ------------------------------------------------------------------ */
-
 export type EmployeeStatus = 'active' | 'on_leave' | 'inactive';
+export type StatusFilter = 'all' | EmployeeStatus;
 
+/**
+ * Shape returned by the `employees` Supabase table (select('*, company_shifts(*)')).
+ * Kept loose/optional on purpose — this mirrors the defensive reads already used
+ * elsewhere in the codebase (tabs-view.tsx) so nothing here assumes a column
+ * exists that hasn't been referenced before.
+ */
 export interface Employee {
   id: string;
-  employee_code: string; // e.g. "EMP001" — rename to your actual column if different
-  full_name: string;
-  email: string;
-  phone?: string | null;
-  department: string;
-  designation: string;
-  status: EmployeeStatus;
-  join_date: string; // ISO date string, e.g. "2024-08-08"
-  salary: number;
   company_id: string;
-
-  // Optional — only used if present on the row. Quick Filters and the
-  // Employment Type filter hide themselves for a field that comes back
-  // undefined/null on every row.
-  date_of_birth?: string | null;
-  probation_end_date?: string | null;
-  employment_type?: string | null; // e.g. "Full-time", "Contract", "Intern"
+  full_name: string;
+  email: string | null;
+  employee_code: string;
+  phone_number?: string | null; // the real, populated column on `employees`
+  phone?: string | null; // legacy/alt column — present on the table but currently unused (always null in prod data)
+  department?: string | null;
+  designation?: string | null;
+  status?: string | null; // raw db value, e.g. "Active" — normalize with getEmployeeStatus()
+  employment_type?: string | null;
+  joining_date?: string | null;
+  monthly_salary?: number | null;
+  bank_account_number?: string | null;
+  ifsc_code?: string | null;
+  company_shifts?: { shift_name: string } | null;
 }
 
-export interface DepartmentCount {
+export interface DepartmentBreakdown {
   department: string;
   count: number;
 }
@@ -46,9 +37,7 @@ export interface EmployeeMetrics {
   onLeave: number;
   inactive: number;
   departmentCount: number;
+  departmentBreakdown: DepartmentBreakdown[];
   newHiresThisMonth: number;
   newHiresLastMonth: number;
-  departmentBreakdown: DepartmentCount[];
 }
-
-export type StatusFilter = 'all' | EmployeeStatus;
