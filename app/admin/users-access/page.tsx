@@ -90,6 +90,10 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Check,
+  Trash2,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
@@ -140,6 +144,33 @@ const ROLE_BADGE_STYLES: Record<string, { bg: string; text: string }> = {
   admin: { bg: "var(--accent-violet-bg)", text: "var(--accent-violet)" },
   employee: { bg: "var(--brand-primary-subtle)", text: "var(--brand-primary)" },
 };
+
+/* ─────────────────────────────────────────────────────────────
+   Shared activity logger — writes to system_audit_logs (the table
+   that already has real data; see the file header note on the
+   audit_logs vs system_audit_logs duplication that's still
+   unresolved). Best-effort: a logging failure never blocks the
+   primary action it's describing.
+───────────────────────────────────────────────────────────── */
+async function logActivity(params: {
+  companyId: string;
+  actorId: string;
+  actorName: string;
+  eventType: string;
+  description: string;
+}) {
+  try {
+    await supabase.from("system_audit_logs").insert({
+      company_id: params.companyId,
+      actor_id: params.actorId,
+      actor_name: params.actorName,
+      event_type: params.eventType,
+      description: params.description,
+    });
+  } catch {
+    // best-effort only
+  }
+}
 
 function roleBadgeStyle(role: string | null) {
   const key = (role || "employee").toLowerCase();
@@ -243,6 +274,7 @@ export default function UsersAccessPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [adminName, setAdminName] = useState<string>("Someone");
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [identityLoading, setIdentityLoading] = useState(true);
 
@@ -273,6 +305,8 @@ export default function UsersAccessPage() {
 
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityEventFilter, setActivityEventFilter] = useState<string>("all");
 
   /* ── Resolve current admin identity + workspace ── */
   useEffect(() => {
@@ -287,12 +321,13 @@ export default function UsersAccessPage() {
       setCurrentUserId(user.id);
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, company_id")
+        .select("role, company_id, full_name")
         .eq("id", user.id)
         .single();
       if (profile) {
         setCurrentRole(profile.role);
         setCompanyId(profile.company_id);
+        if (profile.full_name) setAdminName(profile.full_name);
       }
       setIdentityLoading(false);
     }
@@ -356,8 +391,8 @@ export default function UsersAccessPage() {
       if (!companyId) return;
       const { data, error } = await supabase.from("profiles").select("status").eq("company_id", companyId);
       if (error || !data) return;
-      const active = data.filter((r) => r.status === "active").length;
-      const disabled = data.filter((r) => r.status === "disabled").length;
+      const active = data.filter((r: any) => r.status === "active").length;
+      const disabled = data.filter((r: any) => r.status === "disabled").length;
       setStatusCounts({ active, disabled });
     }
     loadStatusCounts();
@@ -387,7 +422,7 @@ export default function UsersAccessPage() {
       const { data, error } = await supabase.from("profiles").select("role").eq("company_id", companyId);
       if (error || !data) return;
       const counts = new Map<string, number>();
-      data.forEach((r) => {
+      data.forEach((r: any) => {
         const key = r.role || "unassigned";
         counts.set(key, (counts.get(key) || 0) + 1);
       });
@@ -423,6 +458,21 @@ export default function UsersAccessPage() {
     return Array.from(s);
   }, [roleCounts]);
 
+  const activityEventTypes = useMemo(() => {
+    return Array.from(new Set(activity.map((a) => a.event_type))).sort();
+  }, [activity]);
+
+  const filteredActivity = useMemo(() => {
+    return activity.filter((a) => {
+      if (activityEventFilter !== "all" && a.event_type !== activityEventFilter) return false;
+      if (activitySearch.trim()) {
+        const term = activitySearch.trim().toLowerCase();
+        return a.actor_name.toLowerCase().includes(term) || a.description.toLowerCase().includes(term);
+      }
+      return true;
+    });
+  }, [activity, activityEventFilter, activitySearch]);
+
   /* ── Role change (real update, with the two authorization guards the prompt requires) ── */
   async function changeRole(target: Profile, newRole: string) {
     if (target.id === currentUserId) {
@@ -440,6 +490,15 @@ export default function UsersAccessPage() {
       alert(`Couldn't update role: ${error.message}`);
       return;
     }
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: "role_changed",
+        description: `${adminName} changed ${target.full_name || target.email || "a user"}'s role from ${target.role || "unknown"} to ${newRole}`,
+      });
+    }
     setEditRoleFor(null);
     fetchUsers();
   }
@@ -454,6 +513,15 @@ export default function UsersAccessPage() {
     if (error) {
       alert(`Couldn't update status: ${error.message}`);
       return;
+    }
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: next === "disabled" ? "user_disabled" : "user_enabled",
+        description: `${adminName} ${next === "disabled" ? "disabled" : "re-enabled"} ${target.full_name || target.email || "a user"}`,
+      });
     }
     setMenuOpenFor(null);
     fetchUsers();
@@ -897,6 +965,15 @@ export default function UsersAccessPage() {
                       <button
                         onClick={async () => {
                           await supabase.from("invitations").update({ status: "revoked" }).eq("id", inv.id);
+                          if (companyId && currentUserId) {
+                            logActivity({
+                              companyId,
+                              actorId: currentUserId,
+                              actorName: adminName,
+                              eventType: "invite_revoked",
+                              description: `${adminName} revoked the invite for ${inv.email}`,
+                            });
+                          }
                           fetchInvites();
                         }}
                         className="text-xs font-medium text-[var(--status-danger)] hover:underline shrink-0"
@@ -929,19 +1006,39 @@ export default function UsersAccessPage() {
           </div>
         </div>
       ) : activeTab === "roles" ? (
-        <EmptyStateShell
-          icon={Shield}
-          title="Roles & Permissions — architecture ready, no permissions table yet"
-          description={`Roles today are just the free-text "role" column on profiles (admin/employee). To support named roles with descriptions, user counts, and grouped permissions (People, Attendance, Leave, Payroll, Payslips, Reports, Analytics, Company, Users & Access, Security) you'll need a roles + role_permissions table. Say the word and I'll design the migration.`}
-        />
+        <RolesPermissionsTab companyId={companyId} currentUserId={currentUserId} adminName={adminName} />
       ) : activeTab === "requests" ? (
-        <EmptyStateShell
-          icon={ClipboardList}
-          title="No access requests"
-          description="There's no access_requests table in the schema yet, so this section has no real data to show. The table shape is ready (Requester, Requested Role/Access, Department, Requested On, Status, Approve/Reject) — it'll populate once the backend exists."
-        />
+        <AccessRequestsTab companyId={companyId} currentUserId={currentUserId} adminName={adminName} distinctRoles={distinctRoles} />
       ) : activeTab === "logs" ? (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-card overflow-hidden">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[var(--ink-400)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={activitySearch}
+                onChange={(e) => setActivitySearch(e.target.value)}
+                placeholder="Search by user or description…"
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-[var(--border-subtle)] text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={activityEventFilter}
+                onChange={(e) => setActivityEventFilter(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2.5 rounded-lg border border-[var(--border-subtle)] text-sm bg-[var(--surface-card)] cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/30"
+              >
+                <option value="all">All Events</option>
+                {activityEventTypes.map((et) => (
+                  <option key={et} value={et}>
+                    {et.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-[var(--ink-400)] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-card overflow-hidden">
           {loadingActivity ? (
             <div className="p-10 flex items-center justify-center gap-2 text-sm text-[var(--ink-600)]">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading activity…
@@ -951,7 +1048,15 @@ export default function UsersAccessPage() {
               <EmptyStateShell
                 icon={Activity}
                 title="No activity logged yet"
-                description="Reading from system_audit_logs for this workspace. Nothing recorded here yet — note there's also an audit_logs table with a richer shape (actor/action/target/metadata/IP) that currently has 0 rows. Worth consolidating to one table."
+                description="Reading from system_audit_logs for this workspace. Actions you take in this page (role changes, invites, access-request decisions, permission edits) now write real entries here. Note there's also an audit_logs table with a richer shape that's still unused — worth consolidating eventually."
+              />
+            </div>
+          ) : filteredActivity.length === 0 ? (
+            <div className="p-10">
+              <EmptyStateShell
+                icon={Activity}
+                title="No matching activity"
+                description="Try a different search term or clear the event filter."
               />
             </div>
           ) : (
@@ -965,11 +1070,11 @@ export default function UsersAccessPage() {
                 </tr>
               </thead>
               <tbody>
-                {activity.map((a) => (
+                {filteredActivity.map((a) => (
                   <tr key={a.id} className="border-b border-[var(--border-subtle)] last:border-0">
                     <td className="px-4 py-3 text-[var(--ink-900)]">{a.actor_name}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge label={a.event_type} tone="neutral" />
+                      <StatusBadge label={a.event_type.replace(/_/g, " ")} tone="neutral" />
                     </td>
                     <td className="px-4 py-3 text-[var(--ink-600)]">{a.description}</td>
                     <td className="px-4 py-3 text-[var(--ink-400)]">
@@ -980,6 +1085,7 @@ export default function UsersAccessPage() {
               </tbody>
             </table>
           )}
+          </div>
         </div>
       ) : (
         <EmptyStateShell
@@ -1030,6 +1136,8 @@ export default function UsersAccessPage() {
       {inviteOpen && (
         <InviteUserModal
           companyId={companyId}
+          currentUserId={currentUserId}
+          adminName={adminName}
           onClose={() => setInviteOpen(false)}
           onDone={() => {
             fetchUsers();
@@ -1050,10 +1158,14 @@ export default function UsersAccessPage() {
 ───────────────────────────────────────────────────────────── */
 function InviteUserModal({
   companyId,
+  currentUserId,
+  adminName,
   onClose,
   onDone,
 }: {
   companyId: string | null;
+  currentUserId: string | null;
+  adminName: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -1090,6 +1202,16 @@ function InviteUserModal({
         setError(insertError.message);
       }
       return;
+    }
+
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: "invite_sent",
+        description: `${adminName} invited ${name.trim()} (${email.trim()}) as ${role}`,
+      });
     }
 
     // TODO (backend): the invitation row is now real, but there's still no Edge Function
@@ -1174,6 +1296,689 @@ function InviteUserModal({
           </form>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Roles & Permissions tab
+   Reads/writes the real `roles`, `permissions`, `role_permissions`
+   tables (migration: roles_and_permissions). System roles (Admin,
+   Employee) are shown read-only — they're shared defaults and are
+   blocked from editing at the RLS level too, not just in this UI.
+
+   IMPORTANT SCOPE NOTE: this manages the role/permission *data*.
+   Actually enforcing these permissions on other pages/routes in the
+   app (gating nav items, blocking API calls, etc.) is a separate
+   follow-up — this migration and UI don't touch any other page, so
+   nothing else in the app reads from this table yet. Flagging that
+   clearly rather than implying it's already wired everywhere.
+───────────────────────────────────────────────────────────── */
+type PermissionRow = { id: string; key: string; label: string; category: string; sort_order: number };
+type RoleRow = { id: string; company_id: string | null; slug: string; name: string; description: string | null; is_system: boolean };
+
+function RolesPermissionsTab({
+  companyId,
+  currentUserId,
+  adminName,
+}: {
+  companyId: string | null;
+  currentUserId: string | null;
+  adminName: string;
+}) {
+  const [permissions, setPermissions] = useState<PermissionRow[]>([]);
+  const [roles, setRoles] = useState<RoleRow[]>([]);
+  const [grantedByRole, setGrantedByRole] = useState<Record<string, Set<string>>>({});
+  const [userCounts, setUserCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [savingPermId, setSavingPermId] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(true);
+
+    const [{ data: permsData }, { data: rolesData }] = await Promise.all([
+      supabase.from("permissions").select("id, key, label, category, sort_order").order("sort_order"),
+      supabase
+        .from("roles")
+        .select("id, company_id, slug, name, description, is_system")
+        .or(`is_system.eq.true,company_id.eq.${companyId}`)
+        .order("is_system", { ascending: false })
+        .order("name"),
+    ]);
+
+    setPermissions(permsData || []);
+    setRoles(rolesData || []);
+
+    if (rolesData && rolesData.length > 0) {
+      const roleIds = rolesData.map((r: any) => r.id);
+      const { data: rp } = await supabase
+        .from("role_permissions")
+        .select("role_id, permission_id")
+        .in("role_id", roleIds);
+      const map: Record<string, Set<string>> = {};
+      (rp || []).forEach((row: any) => {
+        if (!map[row.role_id]) map[row.role_id] = new Set();
+        map[row.role_id].add(row.permission_id);
+      });
+      setGrantedByRole(map);
+
+      // Real user counts per role slug (matches profiles.role text values)
+      const { data: profileRoles } = await supabase.from("profiles").select("role").eq("company_id", companyId);
+      const counts: Record<string, number> = {};
+      (profileRoles || []).forEach((p: any) => {
+        const key = p.role || "unassigned";
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      setUserCounts(counts);
+
+      if (!selectedRoleId) setSelectedRoleId(rolesData[0].id);
+    }
+
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const selectedRole = roles.find((r) => r.id === selectedRoleId) || null;
+  const grouped = useMemo(() => {
+    const byCategory = new Map<string, PermissionRow[]>();
+    permissions.forEach((p) => {
+      if (!byCategory.has(p.category)) byCategory.set(p.category, []);
+      byCategory.get(p.category)!.push(p);
+    });
+    return Array.from(byCategory.entries());
+  }, [permissions]);
+
+  async function togglePermission(perm: PermissionRow) {
+    if (!selectedRole || selectedRole.is_system) return;
+    setSavingPermId(perm.id);
+    const has = grantedByRole[selectedRole.id]?.has(perm.id);
+
+    if (has) {
+      await supabase
+        .from("role_permissions")
+        .delete()
+        .eq("role_id", selectedRole.id)
+        .eq("permission_id", perm.id);
+    } else {
+      await supabase.from("role_permissions").insert({ role_id: selectedRole.id, permission_id: perm.id });
+    }
+
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: "permission_updated",
+        description: `${adminName} ${has ? "removed" : "granted"} "${perm.label}" ${has ? "from" : "to"} the ${selectedRole.name} role`,
+      });
+    }
+
+    setGrantedByRole((prev) => {
+      const next = { ...prev };
+      const set = new Set(next[selectedRole.id] || []);
+      if (has) set.delete(perm.id);
+      else set.add(perm.id);
+      next[selectedRole.id] = set;
+      return next;
+    });
+    setSavingPermId(null);
+  }
+
+  async function createRole(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError(null);
+    if (!newName.trim()) return setCreateError("Name is required.");
+    if (!companyId) return setCreateError("No workspace found.");
+
+    const slug = newName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    setCreating(true);
+    const { error } = await supabase.from("roles").insert({
+      company_id: companyId,
+      slug,
+      name: newName.trim(),
+      description: newDescription.trim() || null,
+      is_system: false,
+    });
+    setCreating(false);
+
+    if (error) {
+      setCreateError(error.code === "23505" ? "A role with a similar name already exists." : error.message);
+      return;
+    }
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: "role_created",
+        description: `${adminName} created the role "${newName.trim()}"`,
+      });
+    }
+    setNewName("");
+    setNewDescription("");
+    setCreateOpen(false);
+    load();
+  }
+
+  async function deleteRole(role: RoleRow) {
+    if (role.is_system) return;
+    if (!confirm(`Delete the role "${role.name}"? Users currently assigned this role keep it as free text on their profile — you'll want to reassign them separately.`)) return;
+    await supabase.from("roles").delete().eq("id", role.id);
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: "role_deleted",
+        description: `${adminName} deleted the role "${role.name}"`,
+      });
+    }
+    if (selectedRoleId === role.id) setSelectedRoleId(null);
+    load();
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-[var(--ink-600)] py-12 justify-center">
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading roles…
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      {/* Role list */}
+      <div className="space-y-3">
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="w-full inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          New Role
+        </button>
+        <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-card overflow-hidden">
+          {roles.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setSelectedRoleId(r.id)}
+              className={`w-full text-left px-4 py-3 border-b border-[var(--border-subtle)] last:border-0 transition-colors ${
+                selectedRoleId === r.id ? "bg-brand-subtle" : "hover:bg-[var(--surface-card-hover)]"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={`text-sm font-medium truncate ${
+                    selectedRoleId === r.id ? "text-brand" : "text-[var(--ink-900)]"
+                  }`}
+                >
+                  {r.name}
+                </span>
+                {r.is_system && <Lock className="w-3 h-3 text-[var(--ink-400)] shrink-0" />}
+              </div>
+              <span className="text-xs text-[var(--ink-400)]">
+                {userCounts[r.slug] || 0} user{(userCounts[r.slug] || 0) === 1 ? "" : "s"}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Permission matrix */}
+      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-card p-6">
+        {!selectedRole ? (
+          <EmptyStateShell icon={Shield} title="Select a role" description="Choose a role on the left to view or edit its permissions." />
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-[var(--ink-900)]">{selectedRole.name}</h3>
+                  {selectedRole.is_system && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)] bg-[var(--surface-card-hover)] px-1.5 py-0.5 rounded">
+                      System role
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[var(--ink-600)] mt-1">
+                  {selectedRole.description ||
+                    (selectedRole.is_system
+                      ? "Built-in role, shared across all companies. Not editable."
+                      : "Custom role for your workspace.")}
+                </p>
+              </div>
+              {!selectedRole.is_system && (
+                <button
+                  onClick={() => deleteRole(selectedRole)}
+                  className="p-2 rounded-lg text-[var(--status-danger)] hover:bg-[var(--status-danger-bg)] transition-colors shrink-0"
+                  aria-label="Delete role"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              {grouped.map(([category, perms]) => (
+                <div key={category}>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--ink-400)] mb-2">
+                    {category}
+                  </h4>
+                  <div className="space-y-1.5">
+                    {perms.map((perm) => {
+                      const granted = grantedByRole[selectedRole.id]?.has(perm.id) || false;
+                      const disabled = selectedRole.is_system || savingPermId === perm.id;
+                      return (
+                        <button
+                          key={perm.id}
+                          onClick={() => togglePermission(perm)}
+                          disabled={disabled}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-colors ${
+                            granted
+                              ? "border-brand/30 bg-brand-subtle"
+                              : "border-[var(--border-subtle)] hover:bg-[var(--surface-card-hover)]"
+                          } ${selectedRole.is_system ? "cursor-default" : "cursor-pointer"}`}
+                        >
+                          <span className="text-sm text-[var(--ink-900)]">{perm.label}</span>
+                          <span
+                            className={`w-5 h-5 rounded-md flex items-center justify-center border shrink-0 ${
+                              granted ? "bg-brand border-brand" : "border-[var(--border-subtle)]"
+                            }`}
+                          >
+                            {granted && <Check className="w-3.5 h-3.5 text-white" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Create role modal */}
+      {createOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setCreateOpen(false)}
+        >
+          <div
+            className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-xl p-6 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-[var(--ink-900)]">New Role</h3>
+              <button onClick={() => setCreateOpen(false)} className="text-[var(--ink-400)] hover:text-[var(--ink-900)]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={createRole} className="space-y-3.5">
+              <div>
+                <label className="text-xs block mb-1">Role name</label>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm"
+                  placeholder="e.g. HR Manager"
+                />
+              </div>
+              <div>
+                <label className="text-xs block mb-1">Description (optional)</label>
+                <input
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm"
+                  placeholder="What this role is for"
+                />
+              </div>
+              {createError && <p className="text-xs text-[var(--status-danger)]">{createError}</p>}
+              <button
+                type="submit"
+                disabled={creating}
+                className="w-full inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60"
+              >
+                {creating && <Loader2 className="w-4 h-4 animate-spin" />}
+                {creating ? "Creating…" : "Create Role"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Access Requests tab
+   Reads/writes the real `access_requests` table (migration:
+   access_requests). Covers an EXISTING company member requesting
+   a role/access change — not an external person requesting to
+   join a company they're not part of yet (that's a different,
+   invite-adjacent flow with its own entry point elsewhere).
+
+   ENTRY POINT NOTE: there's no self-service surface elsewhere in
+   the app yet where a non-admin user would land here to file a
+   request (this whole layout is the admin-only panel). The "New
+   Request" button below lets the current admin log one directly
+   so the table is real and testable now — wiring a genuine
+   self-service trigger point for regular employees is a separate
+   follow-up that touches pages outside this one.
+───────────────────────────────────────────────────────────── */
+type AccessRequestRow = {
+  id: string;
+  requester_id: string;
+  requester_name: string;
+  requester_email: string;
+  requested_role: string;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+};
+
+function AccessRequestsTab({
+  companyId,
+  currentUserId,
+  adminName,
+  distinctRoles,
+}: {
+  companyId: string | null;
+  currentUserId: string | null;
+  adminName: string;
+  distinctRoles: string[];
+}) {
+  const [requests, setRequests] = useState<AccessRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"pending" | "all">("pending");
+  const [actingOn, setActingOn] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [requestedRole, setRequestedRole] = useState(distinctRoles[0] || "employee");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(true);
+    let query = supabase
+      .from("access_requests")
+      .select("id, requester_id, requester_name, requester_email, requested_role, reason, status, created_at, reviewed_at")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    if (filter === "pending") query = query.eq("status", "pending");
+    const { data } = await query;
+    setRequests(data || []);
+    setLoading(false);
+  }, [companyId, filter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function review(req: AccessRequestRow, decision: "approved" | "rejected") {
+    if (!companyId || !currentUserId) return;
+    setActingOn(req.id);
+
+    const { error } = await supabase
+      .from("access_requests")
+      .update({ status: decision, reviewed_by: currentUserId, reviewed_at: new Date().toISOString() })
+      .eq("id", req.id);
+
+    if (!error && decision === "approved") {
+      // Grant the requested role on approval, subject to the same guard used in the
+      // Users tab (self-role-change is blocked server-side by a trigger regardless).
+      await supabase.from("profiles").update({ role: req.requested_role }).eq("id", req.requester_id);
+    }
+
+    if (!error && companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: decision === "approved" ? "access_request_approved" : "access_request_rejected",
+        description: `${adminName} ${decision} ${req.requester_name}'s request for ${req.requested_role} access`,
+      });
+    }
+
+    setActingOn(null);
+    if (error) {
+      alert(`Couldn't update request: ${error.message}`);
+      return;
+    }
+    load();
+  }
+
+  async function submitRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setFormError(null);
+    if (!name.trim() || !email.trim()) return setFormError("Name and email are required.");
+    if (!companyId || !currentUserId) return setFormError("No workspace found.");
+
+    setSubmitting(true);
+    const { error } = await supabase.from("access_requests").insert({
+      company_id: companyId,
+      requester_id: currentUserId,
+      requester_name: name.trim(),
+      requester_email: email.trim(),
+      requested_role: requestedRole,
+      reason: reason.trim() || null,
+    });
+    setSubmitting(false);
+
+    if (error) {
+      setFormError(error.code === "23505" ? "There's already a pending request for this user." : error.message);
+      return;
+    }
+    if (companyId && currentUserId) {
+      logActivity({
+        companyId,
+        actorId: currentUserId,
+        actorName: adminName,
+        eventType: "access_request_submitted",
+        description: `${adminName} submitted an access request for ${requestedRole}`,
+      });
+    }
+    setName("");
+    setEmail("");
+    setReason("");
+    setCreateOpen(false);
+    load();
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          {(["pending", "all"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filter === f ? "bg-brand text-white" : "text-[var(--ink-600)] hover:bg-[var(--surface-card-hover)]"
+              }`}
+            >
+              {f === "pending" ? "Pending" : "All requests"}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--ink-900)] hover:bg-[var(--surface-card-hover)] transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Request
+        </button>
+      </div>
+
+      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-card overflow-hidden">
+        {loading ? (
+          <div className="p-10 flex items-center justify-center gap-2 text-sm text-[var(--ink-600)]">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading requests…
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="p-10">
+            <EmptyStateShell
+              icon={ClipboardList}
+              title={filter === "pending" ? "No pending requests" : "No access requests yet"}
+              description="Requests for role or access changes from members of your workspace will show up here for approval."
+            />
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--ink-400)]">
+                <th className="px-4 py-3 font-semibold">Requester</th>
+                <th className="px-4 py-3 font-semibold">Requested Role</th>
+                <th className="px-4 py-3 font-semibold">Reason</th>
+                <th className="px-4 py-3 font-semibold">Requested On</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((r) => (
+                <tr key={r.id} className="border-b border-[var(--border-subtle)] last:border-0">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-[var(--ink-900)]">{r.requester_name}</div>
+                    <div className="text-xs text-[var(--ink-600)]">{r.requester_email}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-brand-subtle text-brand">
+                      {r.requested_role.replace(/^\w/, (c) => c.toUpperCase())}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-[var(--ink-600)] max-w-xs truncate">{r.reason || "—"}</td>
+                  <td className="px-4 py-3 text-[var(--ink-400)]">{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">
+                    {r.status === "pending" ? (
+                      <StatusBadge label="Pending" tone="warning" />
+                    ) : r.status === "approved" ? (
+                      <StatusBadge label="Approved" tone="success" />
+                    ) : (
+                      <StatusBadge label="Rejected" tone="danger" />
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.status === "pending" ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => review(r, "approved")}
+                          disabled={actingOn === r.id}
+                          className="p-1.5 rounded-md text-[var(--status-success)] hover:bg-[var(--status-success-bg)] transition-colors disabled:opacity-50"
+                          aria-label="Approve"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => review(r, "rejected")}
+                          disabled={actingOn === r.id}
+                          className="p-1.5 rounded-md text-[var(--status-danger)] hover:bg-[var(--status-danger-bg)] transition-colors disabled:opacity-50"
+                          aria-label="Reject"
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-[var(--ink-400)] block text-right">
+                        {r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString() : "—"}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {createOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setCreateOpen(false)}
+        >
+          <div
+            className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl shadow-xl p-6 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-[var(--ink-900)]">New Access Request</h3>
+              <button onClick={() => setCreateOpen(false)} className="text-[var(--ink-400)] hover:text-[var(--ink-900)]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={submitRequest} className="space-y-3.5">
+              <div>
+                <label className="text-xs block mb-1">Name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm"
+                  placeholder="Requester's name"
+                />
+              </div>
+              <div>
+                <label className="text-xs block mb-1">Email</label>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm"
+                  placeholder="name@company.com"
+                />
+              </div>
+              <div>
+                <label className="text-xs block mb-1">Requested role</label>
+                <select
+                  value={requestedRole}
+                  onChange={(e) => setRequestedRole(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm bg-[var(--surface-card)]"
+                >
+                  {(distinctRoles.length > 0 ? distinctRoles : ["employee", "admin"]).map((r) => (
+                    <option key={r} value={r}>
+                      {r.charAt(0).toUpperCase() + r.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs block mb-1">Reason (optional)</label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-sm resize-none"
+                  placeholder="Why this access is needed"
+                />
+              </div>
+              {formError && <p className="text-xs text-[var(--status-danger)]">{formError}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60"
+              >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {submitting ? "Submitting…" : "Submit Request"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
