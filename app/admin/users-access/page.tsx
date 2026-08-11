@@ -37,9 +37,6 @@
  * STILL NOT AVAILABLE (shown as clean empty/"Not tracked" states, not faked):
  *    - profiles has no `department` column (department only exists on `employees`, and only
  *      1 employee row currently exists, with no reliable join key to profiles).
- *    - No `last_sign_in`/session table exposed to the client -> "Last Active" cannot be shown.
- *      (auth.users.last_sign_in_at exists but isn't queryable from the client without a
- *      service-role Edge Function.)
  *    - No roles/permissions table -> roles are the free-text values actually stored on
  *      `profiles.role` (currently just "admin" / "employee" in your data, not the 6-tier
  *      Super Admin/HR Manager/etc. set shown in the reference mockup).
@@ -48,6 +45,15 @@
  *    - Invite flow now writes a real `invitations` row, but there's still no Edge Function
  *      to actually create the auth.users account and email it out — that needs the service
  *      role, which the client can't hold.
+ *
+ * 4. MIGRATED (`security_summary_functions`): "Last Active" and part of the Security tab
+ *    ARE now real, sourced from Supabase's built-in `auth.sessions` / `auth.mfa_factors` —
+ *    but never exposed directly. Two narrow SECURITY DEFINER functions
+ *    (`get_last_active_for_company`, `get_security_summary`) return only safe aggregates
+ *    and verify the caller actually owns the company they're asking about before returning
+ *    anything. Both are owner-only by design (they reveal other people's activity).
+ *    Failed Login Attempts / Password Changes remain "Not available" — Supabase's own
+ *    `auth.audit_log_entries` exists but is empty on this project (checked, not assumed).
  *
  * 4. Activity Logs: there are actually TWO overlapping tables — `audit_logs` (0 rows, richer
  *    shape: actor_id/action/target_type/target_id/metadata/ip_address) and
@@ -298,6 +304,7 @@ export default function UsersAccessPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [roleCounts, setRoleCounts] = useState<{ role: string; count: number }[]>([]);
+  const [lastActiveMap, setLastActiveMap] = useState<Record<string, string>>({});
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editRoleFor, setEditRoleFor] = useState<Profile | null>(null);
@@ -414,6 +421,23 @@ export default function UsersAccessPage() {
   useEffect(() => {
     fetchInvites();
   }, [fetchInvites]);
+
+  /* ── Real last-active timestamps, via a security-definer RPC (owner-only; auth.sessions
+     isn't exposed to the client directly). Fails silently to "—" for non-owners or if
+     nobody has an active session yet — both look the same and that's fine. ── */
+  useEffect(() => {
+    async function loadLastActive() {
+      if (!companyId) return;
+      const { data, error } = await supabase.rpc("get_last_active_for_company", { p_company_id: companyId });
+      if (error || !data) return;
+      const map: Record<string, string> = {};
+      (data as any[]).forEach((row: any) => {
+        if (row.last_active) map[row.user_id] = row.last_active;
+      });
+      setLastActiveMap(map);
+    }
+    loadLastActive();
+  }, [companyId, totalCount]);
 
   /* ── Real role counts for the Roles Overview panel ── */
   useEffect(() => {
@@ -766,7 +790,11 @@ export default function UsersAccessPage() {
                                 <StatusBadge label="Invited" tone="warning" />
                               )}
                             </td>
-                            <td className="px-4 py-3 text-[var(--ink-400)]">—</td>
+                            <td className="px-4 py-3 text-[var(--ink-400)]">
+                              {lastActiveMap[p.id]
+                                ? new Date(lastActiveMap[p.id]).toLocaleString()
+                                : "—"}
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-1 relative">
                                 <button
@@ -1088,11 +1116,7 @@ export default function UsersAccessPage() {
           </div>
         </div>
       ) : (
-        <EmptyStateShell
-          icon={Lock}
-          title="Security settings — architecture ready, not wired up"
-          description="Password Policy, MFA, Session Management, Login Security and Active Sessions all depend on either Supabase Auth settings (MFA/session policy live at the project level, not per-workspace) or new tables this project doesn't have yet. Tell me which of these matters most and I'll scope it."
-        />
+        <SecurityTab companyId={companyId} />
       )}
 
       {/* Edit role modal */}
@@ -1976,6 +2000,116 @@ function AccessRequestsTab({
                 {submitting ? "Submitting…" : "Submit Request"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Security tab
+   Active Sessions and MFA Enabled Users are real, via the
+   get_security_summary() RPC (migration: security_summary_functions) —
+   sourced from Supabase's own auth.sessions / auth.mfa_factors,
+   never exposed to the client directly. Owner-only.
+
+   Failed Login Attempts and Password Changes remain genuinely
+   unavailable: Supabase's built-in auth.audit_log_entries table
+   exists but has 0 rows on this project — checked directly, not
+   assumed. Password Policy and MFA enforcement are project-level
+   Supabase Auth settings, not per-workspace data this page can
+   show or change — that lives in the Supabase dashboard.
+───────────────────────────────────────────────────────────── */
+function SecurityTab({ companyId }: { companyId: string | null }) {
+  const [summary, setSummary] = useState<{
+    active_sessions: number;
+    mfa_enabled_users: number;
+    total_users: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      if (!companyId) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .rpc("get_security_summary", { p_company_id: companyId })
+        .single();
+      if (error) {
+        setUnauthorized(true);
+      } else if (data) {
+        setSummary(data as any);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [companyId]);
+
+  const mfaPct =
+    summary && summary.total_users > 0 ? Math.round((summary.mfa_enabled_users / summary.total_users) * 100) : 0;
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-[var(--ink-600)] py-12 justify-center">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading security summary…
+        </div>
+      ) : unauthorized ? (
+        <EmptyStateShell
+          icon={Lock}
+          title="Only the workspace owner can view this"
+          description="Session and MFA data reveals other people's activity, so it's restricted to the company owner, enforced at the database level — not just hidden in this UI."
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5 shadow-card">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[var(--accent-green-bg)]">
+                <Activity className="w-4 h-4" style={{ color: "var(--accent-green)" }} />
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-400)]">
+                Active Sessions
+              </span>
+            </div>
+            <div className="text-2xl font-bold text-[var(--ink-900)]">{summary?.active_sessions ?? 0}</div>
+            <p className="text-xs text-[var(--ink-600)] mt-1">Real, from auth.sessions</p>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-5 shadow-card">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[var(--accent-violet-bg)]">
+                <Shield className="w-4 h-4" style={{ color: "var(--accent-violet)" }} />
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-400)]">
+                MFA Enabled Users
+              </span>
+            </div>
+            <div className="text-2xl font-bold text-[var(--ink-900)]">
+              {summary?.mfa_enabled_users ?? 0}
+              <span className="text-sm font-normal text-[var(--ink-400)]"> / {summary?.total_users ?? 0}</span>
+            </div>
+            <p className="text-xs text-[var(--ink-600)] mt-1">{mfaPct}% of your workspace has MFA on</p>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-dashed border-[var(--border-subtle)] rounded-xl p-5 sm:col-span-2">
+            <h3 className="text-sm font-semibold text-[var(--ink-900)] mb-1">Failed Login Attempts</h3>
+            <p className="text-xs text-[var(--ink-600)] leading-relaxed">
+              Not available. Supabase's built-in auth audit log exists on this project but has no
+              entries yet — checked directly, not assumed. If this starts populating later, it's
+              a straightforward addition to this tab.
+            </p>
+          </div>
+
+          <div className="bg-[var(--surface-card)] border border-dashed border-[var(--border-subtle)] rounded-xl p-5 sm:col-span-2">
+            <h3 className="text-sm font-semibold text-[var(--ink-900)] mb-1">Password Policy &amp; MFA Enforcement</h3>
+            <p className="text-xs text-[var(--ink-600)] leading-relaxed">
+              These are project-level Supabase Auth settings, not per-workspace data — they apply
+              to every company on HRBharat at once, not just yours, so they don't belong in a
+              per-company UI like this one. Managed from the Supabase dashboard under
+              Authentication → Policies.
+            </p>
           </div>
         </div>
       )}
