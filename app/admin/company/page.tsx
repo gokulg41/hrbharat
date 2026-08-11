@@ -34,12 +34,9 @@ import {
   Fingerprint,
   Hash,
   Copy,
-  Lock,
-  LogOut,
   KeyRound,
   Smartphone,
   Activity,
-  Trash2,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
@@ -187,6 +184,13 @@ export default function CompanyPage() {
   const [webhookForm, setWebhookForm] = useState<any>(null);
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [secretCopied, setSecretCopied] = useState(false);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [ipAllowlist, setIpAllowlist] = useState('');
+  const [savingIpAllowlist, setSavingIpAllowlist] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Security tab — real Supabase Auth state, not app-schema data
   const [adminEmail, setAdminEmail] = useState('');
@@ -222,13 +226,14 @@ export default function CompanyPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
+      setAuthUser(user);
       const { data: profile } = await supabase.from('profiles').select('company_id, role, full_name').eq('id', user.id).single();
       if (!profile || profile.role !== 'admin') { router.push('/login'); return; }
       if (profile.full_name) setAdminName(profile.full_name.split(' ')[0]);
       const cid = profile.company_id;
       setCompanyId(cid);
 
-      const [companyRes, empRes, branchRes, subRes, docRes, payrollRes, leaveSettingsRes, leaveTypesRes, notifRes, webhookRes] = await Promise.all([
+      const [companyRes, empRes, branchRes, subRes, docRes, payrollRes, leaveSettingsRes, leaveTypesRes, notifRes, webhookRes, companySettingsRes, auditRes] = await Promise.all([
         supabase.from('companies').select('*').eq('id', cid).single(),
         supabase.from('employees').select('id, department').eq('company_id', cid),
         supabase.from('branches').select('id').eq('company_id', cid),
@@ -239,6 +244,8 @@ export default function CompanyPage() {
         supabase.from('leave_type_policies').select('*').eq('company_id', cid),
         supabase.from('notification_settings').select('*').eq('company_id', cid).maybeSingle(),
         supabase.from('webhook_integrations').select('*').eq('company_id', cid).maybeSingle(),
+        supabase.from('company_settings').select('*').eq('company_id', cid).maybeSingle(),
+        supabase.from('system_audit_logs').select('*').eq('company_id', cid).order('created_at', { ascending: false }).limit(10),
       ]);
 
       const firstErr = [companyRes, empRes, branchRes, docRes].find((r) => r.error)?.error;
@@ -339,6 +346,9 @@ export default function CompanyPage() {
         setWebhookSettings(null);
         setWebhookForm(DEFAULT_WEBHOOK);
       }
+
+      if (companySettingsRes.data?.allowed_ip) setIpAllowlist(companySettingsRes.data.allowed_ip);
+      if (auditRes.data) setAuditLogs(auditRes.data);
 
       setLoading(false);
     }
@@ -579,6 +589,28 @@ export default function CompanyPage() {
     setTimeout(() => setSecretCopied(false), 2000);
   }
 
+  async function changePassword() {
+    const errs: Record<string, string> = {};
+    if (newPassword.length < 8) errs.newPassword = 'Password must be at least 8 characters.';
+    if (newPassword !== confirmPassword) errs.confirmPassword = 'Passwords do not match.';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) { setToast({ type: 'error', text: 'Please fix the highlighted fields before saving.' }); return; }
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSavingPassword(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setNewPassword(''); setConfirmPassword('');
+    setToast({ type: 'success', text: 'Password updated.' });
+  }
+
+  async function saveIpAllowlist() {
+    setSavingIpAllowlist(true);
+    const { error } = await supabase.from('company_settings').upsert({ company_id: companyId, allowed_ip: ipAllowlist || null }, { onConflict: 'company_id' });
+    setSavingIpAllowlist(false);
+    if (error) { setToast({ type: 'error', text: error.message }); return; }
+    setToast({ type: 'success', text: 'IP allowlist saved.' });
+  }
+
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !companyId) return;
@@ -677,7 +709,7 @@ export default function CompanyPage() {
             return (
               <button
                 key={t.key}
-                onClick={() => { if (t.key === 'profile' || t.key === 'business' || t.key === 'payroll' || t.key === 'leave' || t.key === 'notifications' || t.key === 'integrations') { setActiveTab(t.key); } else { setLockedNote(t.label); } }}
+                onClick={() => { if (t.key === 'profile' || t.key === 'business' || t.key === 'payroll' || t.key === 'leave' || t.key === 'notifications' || t.key === 'integrations' || t.key === 'security') { setActiveTab(t.key); } else { setLockedNote(t.label); } }}
                 className={`flex items-center gap-1.5 whitespace-nowrap pb-3 text-sm font-sans font-medium border-b-2 transition-colors ${isActive ? 'border-brand text-brand font-semibold' : 'border-transparent text-ink-400 hover:text-ink-600'}`}
               >
                 <Icon className="w-3.5 h-3.5" /> {t.label}
@@ -1363,6 +1395,89 @@ export default function CompanyPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+        </>
+      )}
+
+      {activeTab === 'security' && (
+        <>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 font-sans leading-relaxed">
+            Password changes and the activity feed below use your real Supabase Auth session and <span className="font-semibold">system_audit_logs</span> — both genuinely functional.
+            {' '}Things like enforced password policy, 2FA, and session timeout are controlled at the Supabase Auth project level, not by this app&apos;s database, so they aren&apos;t shown here to avoid implying a toggle that wouldn&apos;t actually do anything.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Change Password */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><KeyRound className="w-4 h-4 text-brand" /> Change Password</p>
+            <div className="space-y-4">
+              <Field label="New Password" error={errors.newPassword}>
+                <input type="password" className={inputCls} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" />
+              </Field>
+              <Field label="Confirm New Password" error={errors.confirmPassword}>
+                <input type="password" className={inputCls} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+              </Field>
+              <button onClick={changePassword} disabled={savingPassword || !newPassword}
+                className="flex items-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+                {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingPassword ? 'Updating…' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+
+          {/* Account Access */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><Smartphone className="w-4 h-4 text-brand" /> Account Access</p>
+            <div className="space-y-1">
+              {[
+                { label: 'Signed In As', value: authUser?.email || '—' },
+                { label: 'Last Sign-in', value: authUser?.last_sign_in_at ? new Date(authUser.last_sign_in_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' },
+                { label: 'Account Created', value: authUser?.created_at ? formatDate(authUser.created_at) : '—' },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between py-2.5 border-b border-[var(--border-subtle)] last:border-0">
+                  <p className="text-xs text-ink-400 font-sans">{row.label}</p>
+                  <p className="text-xs font-semibold text-ink-900 font-sans">{row.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* IP Allowlist */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-1 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand" /> IP Allowlist</p>
+            <p className="text-[10px] text-ink-400 font-sans mb-4">
+              Stored on <span className="font-mono">company_settings.allowed_ip</span> — this looks like a parallel table to the geofencing fields already on Business Details, so it&apos;s worth confirming which one your app actually enforces against before relying on this.
+            </p>
+            <Field label="Allowed IP Addresses">
+              <textarea rows={3} className={inputCls} value={ipAllowlist} onChange={(e) => setIpAllowlist(e.target.value)} placeholder="e.g. 203.0.113.4, 203.0.113.5 — leave blank to allow any IP" />
+            </Field>
+            <button onClick={saveIpAllowlist} disabled={savingIpAllowlist}
+              className="mt-4 flex items-center gap-1.5 text-sm font-sans font-semibold px-4 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white disabled:opacity-50">
+              {savingIpAllowlist ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {savingIpAllowlist ? 'Saving…' : 'Save Allowlist'}
+            </button>
+          </div>
+
+          {/* Recent Security Activity */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-xl p-6 shadow-card">
+            <p className="text-sm font-bold text-ink-900 font-sans mb-4 flex items-center gap-2"><Activity className="w-4 h-4 text-brand" /> Recent Activity</p>
+            {auditLogs.length === 0 ? (
+              <p className="text-xs text-ink-400 font-sans italic text-center py-8">No activity recorded yet.</p>
+            ) : (
+              <div className="space-y-1 max-h-72 overflow-y-auto">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-2.5 py-2.5 border-b border-[var(--border-subtle)] last:border-0">
+                    <span className="w-7 h-7 rounded-lg bg-[var(--surface-card-hover)] flex items-center justify-center shrink-0 mt-0.5"><Activity className="w-3.5 h-3.5 text-ink-600" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-ink-900 font-sans leading-snug">{log.description}</p>
+                      <p className="text-[10px] text-ink-400 font-sans mt-0.5">{log.actor_name} · {new Date(log.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         </>
