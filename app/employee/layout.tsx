@@ -12,6 +12,7 @@ import {
   Home,
   Menu,
   X,
+  ClipboardList,
 } from 'lucide-react';
 
 export default function EmployeeSidebarLayout({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,7 @@ export default function EmployeeSidebarLayout({ children }: { children: React.Re
     { name: 'Overview', href: '/employee', icon: Home },
     { name: 'Attendance', href: '/employee/attendance', icon: MapPin },
     { name: 'Payroll', href: '/employee/payroll', icon: CreditCard },
+    { name: 'My Requests', href: '/employee/requests', icon: ClipboardList },
     { name: 'Settings', href: '/employee/settings', icon: Settings },
   ];
 
