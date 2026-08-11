@@ -35,6 +35,14 @@ const config = {
           danger: "var(--status-danger)",
           "danger-bg": "var(--status-danger-bg)",
         },
+        accent: {
+          violet: "var(--accent-violet)",
+          "violet-bg": "var(--accent-violet-bg)",
+          green: "var(--accent-green)",
+          "green-bg": "var(--accent-green-bg)",
+          orange: "var(--accent-orange)",
+          "orange-bg": "var(--accent-orange-bg)",
+        },
       },
       boxShadow: {
         card: "var(--shadow-card)",

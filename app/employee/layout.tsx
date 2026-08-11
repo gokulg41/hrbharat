@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  CalendarDays,
 } from 'lucide-react';
 
 export default function EmployeeSidebarLayout({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,7 @@ export default function EmployeeSidebarLayout({ children }: { children: React.Re
     { name: 'Attendance', href: '/employee/attendance', icon: MapPin },
     { name: 'Payroll', href: '/employee/payroll', icon: CreditCard },
     { name: 'My Requests', href: '/employee/requests', icon: ClipboardList },
+    { name: 'Calendar', href: '/employee/calendar', icon: CalendarDays },
     { name: 'Settings', href: '/employee/settings', icon: Settings },
   ];
 
